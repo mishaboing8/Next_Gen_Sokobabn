@@ -12,16 +12,41 @@ int TEX_Y_COUNT;
 int const WINDOW_WIDTH = 640;
 int WINDOW_HEIGHT;
 
+int const maxLVL = 30;
 int WIDTH_RELATIVETY;
 int HEIGHT_RELATIVETY;
-char const *resources[14] = {"resources/box.png","resources/builder.png","resources/background.png",
-                            "resources/wall.png","resources/target.png","resources/win.png", 
-                            "resources/icon.png", 
+
+int const resourcesCount = 15;
+
+char const *resources[resourcesCount] = {
+                            "resources/background.png", 
+                            "resources/box.png", "resources/wall.png","resources/target.png",
+                            "resources/builder.png", "resources/win.png", "resources/icon.png", 
                             "resources/coolBoxOn.png","resources/coolBoxOff.png",
-                            "resources/coolBuilder.png", "resources/coolGoogles.png",
-                            "resources/coolWall.png","resources/coolWallUp.png", 
-                            "resources/coolTarget.png"};
-int coolCount = 7;                            
+                            "resources/coolBuilder.png", "resources/coolGoogles.png", "resources/coolWall.png",
+                            "resources/coolWallUp.png", "resources/coolTarget.png",
+                            "resources/DIY.png"
+                            };
+
+int const imgCount = 10;
+
+char const *numbersPaths[imgCount] = {
+                    "resources/numbers/one.png", "resources/numbers/two.png", 
+                    "resources/numbers/three.png", "resources/numbers/four.png", 
+                    "resources/numbers/five.png", "resources/numbers/six.png", 
+                    "resources/numbers/seven.png", "resources/numbers/eight.png", 
+                    "resources/numbers/nine.png", "resources/numbers/zero.png"};
+
+
+SDL_Texture *resTex[resourcesCount];
+SDL_Texture *numText[imgCount];
+SDL_Texture *allNumText[maxLVL];
+
+SDL_Surface *icon = NULL;
+
+const char *window_title = "SOKOBAN";
+Uint32 render_flags = SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC;
+                         
 
 
 //-----------------SOKOBAN LOGIC VALUES----------------------
@@ -29,8 +54,8 @@ int coolCount = 7;
 #include <stdbool.h>
 #include <stdlib.h>
 
-#define MAX_WIDTH 40//max witdth or height of reading maps
-#define MAX_HEIGHT 40
+#define MAX_WIDTH 30//max witdth or height of reading maps
+#define MAX_HEIGHT 30
 
 static char field[MAX_HEIGHT][MAX_WIDTH] = {{'0'}};//field charactereistics (at first empty)
 int height = 0, width = 0;//starting width or height, and level
@@ -54,6 +79,11 @@ box target = 'X'
 (just in file) box on target = '*', printed will be like 'B'
 */
 
+
+int initText(SDL_Renderer *rend);
+int destroyText();
+
+
 int loadField(int lvl);//finds and loads level from file
 int loadLevel();//same as loadField, but with error catching loop
 void printField(SDL_Rect* xBuilder, SDL_Rect xWalls[wallsCount], SDL_Rect xBoxes[targetCount], SDL_Rect xTargets[targetCount]);
@@ -68,17 +98,21 @@ int readyTargetCount();//returns all targets count, that are with boxes (box on 
 bool isOnTarget(int x, int y);//returns true if object on this coord is on target
 
 int play();
+int makeLevel();
 int choosingSokobalLVL();
 
 int main(int argc, char* argv[])
 {
-    while (true)
-    {
+    int choose = 0;
+    while (true) {
         xPos = 0, yPos = 0;
         targetCount = 0;
         if(loadLevel() == -1) return 0;//load level heigt and width of field
-        play();
+        if(currLVL == 0) makeLevel();
+        else play();
     }
+
+    destroyText();
     
     return 0;
 }
@@ -91,30 +125,14 @@ int play(){
 
 
     //Creates pointers to various game elements
-    const char *window1_title = "SOKOBAN";
+    //Uint32 render_flags = SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC;
 
-    Uint32 render_flags = SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC;
-
-    SDL_Window  *window1 = NULL;
+    SDL_Window  *window = NULL;
     SDL_Renderer*rend = NULL;
-    SDL_Surface *box = NULL;
-    SDL_Surface *builder = NULL;
-    SDL_Surface *background = NULL;
-    SDL_Surface *target = NULL;
-    SDL_Surface *wall = NULL;
-    SDL_Surface *win = NULL;
-    SDL_Surface *icon = NULL;
-    SDL_Surface *coolStaff[coolCount];
 
-    SDL_Texture *texBox = NULL;
-    SDL_Texture *texBackground = NULL;
-    SDL_Texture *texBuilder = NULL;
-    SDL_Texture *texTarget = NULL;
     SDL_Texture *targetTexture = NULL;
-    SDL_Texture *texWall = NULL;
-    SDL_Texture *texWin = NULL;
-    SDL_Texture *texCool[coolCount];
     SDL_Texture *coolTargetTexture = NULL;
+    // SDL_Surface *resSurf[resourcesCount];
 
     int request_quit = 0;
 
@@ -134,12 +152,12 @@ int play(){
     Creates centered window with the window title pointer, width, height, and
     no flags
     */
-    window1 = SDL_CreateWindow(window1_title, SDL_WINDOWPOS_CENTERED,
+    window = SDL_CreateWindow(window_title, SDL_WINDOWPOS_CENTERED,
                                               SDL_WINDOWPOS_CENTERED,
                                       WINDOW_WIDTH, WINDOW_HEIGHT, 0);
 
     //Prints error message if SDL failed to create window1
-    if(!window1)
+    if(!window)
     {
         printf("Failed to initalize window: %s\n", SDL_GetError());
         SDL_Quit();
@@ -147,16 +165,23 @@ int play(){
     }
 
     //Initializes renderer
-    rend = SDL_CreateRenderer(window1, -1, render_flags);
-    if(!rend)
-    {
+    rend = SDL_CreateRenderer(window, -1, render_flags);
+    if(!rend){
         printf("Failed to initialize renderer: %s\n", SDL_GetError());
 
         //Destroys window
-        SDL_DestroyWindow(window1);
+        SDL_DestroyWindow(window);
         SDL_Quit();
         return 1;
     }
+    
+    if(initText(rend) == -1){
+        SDL_DestroyRenderer(rend);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return -1;
+    }
+
     Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048);
 
     Mix_Music *backAudio = Mix_LoadMUS("resources/audio/dawning.mp3");
@@ -164,78 +189,18 @@ int play(){
         printf("Failed to initialize audio: %s\n", SDL_GetError());
 
         //Destroys window
-        SDL_DestroyWindow(window1);
+        SDL_DestroyWindow(window);
         SDL_Quit();
         return 1;
     }
 
-    //Loads images
-    box = IMG_Load(resources[0]);
-    builder = IMG_Load(resources[1]);
-    background = IMG_Load(resources[2]);
-    wall = IMG_Load(resources[3]);
-    target = IMG_Load(resources[4]);
-    win = IMG_Load(resources[5]);
-    icon = IMG_Load(resources[6]);
-
-    for(int i = 0; i < coolCount; i++)
-        coolStaff[i] = IMG_Load(resources[i+7]);
-    
-
-    //Tests if an image didn't load
-    for(int i = 0; i < 5; i++)
-        if(!coolStaff[i] && !box && !background && !builder && !wall && !target && !win && !icon)
-        {
-            printf("Failed to load images\n");
-        //Destroys initalized components and quits
-            SDL_DestroyRenderer(rend);
-            SDL_DestroyWindow(window1);
-            SDL_Quit();
-            return 1;
-        }
 
     //Texturizes loaded images
 
-    SDL_SetWindowIcon(window1, icon);
-    SDL_FreeSurface(icon);
-
-    for(int i = 0; i < coolCount; i++){
-        texCool[i] = SDL_CreateTextureFromSurface(rend, coolStaff[i]);
-        SDL_FreeSurface(coolStaff[i]);
-    }
-
-    texBox = SDL_CreateTextureFromSurface(rend, box);
-    SDL_FreeSurface(box);
-
-    texBackground = SDL_CreateTextureFromSurface(rend, background);
-    SDL_FreeSurface(background);
-
-    texBuilder = SDL_CreateTextureFromSurface(rend, builder);
-    SDL_FreeSurface(builder);
-
-    texWall = SDL_CreateTextureFromSurface(rend, wall);
-    SDL_FreeSurface(wall);
-
-    texTarget = SDL_CreateTextureFromSurface(rend, target);
-    SDL_FreeSurface(target);
-    
-    texWin = SDL_CreateTextureFromSurface(rend, win);
-    SDL_FreeSurface(win);
+    SDL_SetWindowIcon(window, icon);
 
     targetTexture = SDL_CreateTexture(rend, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, WINDOW_WIDTH, WINDOW_HEIGHT);
     coolTargetTexture =SDL_CreateTexture(rend, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, WINDOW_WIDTH, WINDOW_HEIGHT);
-
-
-    // Errors if sprites fail to texturize
-    for (int i = 0; i < coolCount; i++)
-        if(!texCool[i] && !texBox && !texBackground && !texBuilder && !texWall && !texTarget && !texWin && !targetTexture && !coolTargetTexture)
-        {
-            printf("Failed to texturize images\n");
-            SDL_DestroyRenderer(rend);
-            SDL_DestroyWindow(window1);
-            SDL_Quit();
-            return 1;
-        }
 
     // Structs to hold coordinate positions
     SDL_Rect xBoxes[targetCount];
@@ -249,9 +214,9 @@ int play(){
 
 
     //Gets scale and dimensions of textures
-    SDL_QueryTexture(texBackground, NULL, NULL, &xBackground.w, &xBackground.h);
-    SDL_QueryTexture(texBuilder, NULL, NULL, &xBuilder.w, &xBuilder.h);
-    SDL_QueryTexture(texWin, NULL, NULL, &xWin.w, &xWin.h);
+    SDL_QueryTexture(resTex[0], NULL, NULL, &xBackground.w, &xBackground.h);
+    SDL_QueryTexture(resTex[4], NULL, NULL, &xBuilder.w, &xBuilder.h);
+    SDL_QueryTexture(resTex[5], NULL, NULL, &xWin.w, &xWin.h);
 
     if(WINDOW_WIDTH/WINDOW_HEIGHT >= 3){//win texture is 48 : 16 (1:3)
         xWin.w = WINDOW_HEIGHT;
@@ -264,11 +229,11 @@ int play(){
         xWin.y = WINDOW_HEIGHT/2 - xWin.h/2;
 
     for(int i = 0; i < wallsCount; i++)
-         SDL_QueryTexture(texWall, NULL, NULL, &xWalls[i].w, &xWalls[i].h);
+         SDL_QueryTexture(resTex[2], NULL, NULL, &xWalls[i].w, &xWalls[i].h);
     
     for (int i = 0; i < targetCount; i++) {
-        SDL_QueryTexture(texTarget, NULL, NULL, &xTargets[i].w, &xTargets[i].h);
-        SDL_QueryTexture(texBox, NULL, NULL, &xBoxes[i].w, &xBoxes[i].h);
+        SDL_QueryTexture(resTex[3], NULL, NULL, &xTargets[i].w, &xTargets[i].h);
+        SDL_QueryTexture(resTex[1], NULL, NULL, &xBoxes[i].w, &xBoxes[i].h);
     }
     
     //Reorder positions and dimensions of textures
@@ -299,10 +264,10 @@ int play(){
     SDL_RenderClear(rend);
     SDL_SetRenderTarget(rend, targetTexture);
     
-    SDL_RenderCopy(rend, texBackground, NULL, &xBackground);
+    SDL_RenderCopy(rend, resTex[0], NULL, &xBackground);
 
     for(int i = 0; i < targetCount; i++)
-        SDL_RenderCopy(rend, texTarget, NULL, &xTargets[i]);
+        SDL_RenderCopy(rend, resTex[3], NULL, &xTargets[i]);
 
     SDL_SetRenderTarget(rend, NULL);
     SDL_RenderClear(rend);
@@ -310,10 +275,10 @@ int play(){
     //combine cool staff
     SDL_SetRenderTarget(rend, coolTargetTexture);
     
-    SDL_RenderCopy(rend, texBackground, NULL, &xBackground);                            
+    SDL_RenderCopy(rend, resTex[0], NULL, &xBackground);                            
     
     for(int i = 0; i < targetCount; i++)
-        SDL_RenderCopy(rend, texCool[6], NULL, &xTargets[i]);
+        SDL_RenderCopy(rend, resTex[13], NULL, &xTargets[i]);
 
     SDL_SetRenderTarget(rend, NULL);
     SDL_RenderClear(rend);
@@ -398,28 +363,28 @@ int play(){
 
         if(frameCount == 25) {
             for(int i = 0; i < targetCount; i++)
-                coolBoxOn[i] = rand() % 2 == 0 ? 0 : 1;
+                coolBoxOn[i] = rand() % 2 == 0 ? 7 : 8;
 
             for(int i = 0; i < wallsCount; i++)
-                coolWallOn[i] = rand() % 2 == 0 ? 4 : 5;    
+                coolWallOn[i] = rand() % 2 == 0 ? 11 : 12;    
 
             frameCount = 0;
         }
         for(int i = 0; i < targetCount; i++)
-            SDL_RenderCopy(rend, !coolMode ? texBox : texCool[coolBoxOn[i]], NULL, &xBoxes[i]);
+            SDL_RenderCopy(rend, !coolMode ? resTex[1] : resTex[coolBoxOn[i]], NULL, &xBoxes[i]);
 
         for(int i = 0; i < wallsCount; i++)
-            SDL_RenderCopy(rend, !coolMode ? texWall : texCool[coolWallOn[i]], NULL, &xWalls[i]);
+            SDL_RenderCopy(rend, !coolMode ? resTex[2] : resTex[coolWallOn[i]], NULL, &xWalls[i]);
 
-        SDL_RenderCopy(rend, !coolMode ? texBuilder : texCool[2], NULL, &xBuilder);
+        SDL_RenderCopy(rend, !coolMode ? resTex[4] : resTex[9], NULL, &xBuilder);
 
         
         if(startCoolMode && !coolMode){
-            SDL_RenderCopy(rend, texCool[3], NULL, &xGoog);
+            SDL_RenderCopy(rend, resTex[10], NULL, &xGoog);
         }
 
         if(readyTargetCount() == targetCount || wonFrameRate > 0){
-            SDL_RenderCopy(rend, texWin, NULL, &xWin);
+            SDL_RenderCopy(rend, resTex[5], NULL, &xWin);
             wonFrameRate++;
         }
 
@@ -433,18 +398,10 @@ int play(){
     Mix_CloseAudio();
     Mix_FreeMusic(backAudio);
 
-    SDL_DestroyTexture(texBox);
-    SDL_DestroyTexture(texBuilder);
-    SDL_DestroyTexture(texBackground);
-    SDL_DestroyTexture(texTarget);
-    SDL_DestroyTexture(texWall);
-    SDL_DestroyTexture(texWin);
-    for (int i = 0; i < coolCount; i++) {
-        SDL_DestroyTexture(texCool[i]);
-    }
-    
+
+    destroyText();
     SDL_DestroyRenderer(rend);
-    SDL_DestroyWindow(window1);
+    SDL_DestroyWindow(window);
     SDL_Quit();
     return request_quit == 1 ? -1 : 1;
 }
@@ -493,6 +450,7 @@ void printField(SDL_Rect* xBuilder, SDL_Rect xWalls[wallsCount], SDL_Rect xBoxes
 int loadLevel(){
     int lvl = choosingSokobalLVL();
     if(lvl == -1) return -1;
+    if(lvl == 0) return 1;//DIY
     if(loadField(lvl) == -1) return -1;
     return 1;
 }
@@ -659,48 +617,27 @@ int readyTargetCount(){
 }
 
 
-
-
 //---------------------CHOOOSE SOKOBAN LELEVEL --------------------
-int const imgCount = 13;
-int const notNum = 3;
-
-char const *numbersPaths[imgCount] = {"resources/background.png","resources/box.png","resources/target.png", 
-                    "resources/numbers/one.png", "resources/numbers/two.png", 
-                    "resources/numbers/three.png", "resources/numbers/four.png", 
-                    "resources/numbers/five.png", "resources/numbers/six.png", 
-                    "resources/numbers/seven.png", "resources/numbers/eight.png", 
-                    "resources/numbers/nine.png", "resources/numbers/zero.png"};
 
 int const CHOOSING_WINDOW_WIDTH = 720;
 int const CHOOSING_WINDOW_HEIGHT = 720;
+int texWidth = CHOOSING_WINDOW_WIDTH/10, texHeight = CHOOSING_WINDOW_HEIGHT/10;
 
 int findLVLCount();
 int combineNumTexture(SDL_Renderer *rend, int digit, SDL_Texture *targetTexture, int texWidth, int texHeight);
 
-SDL_Texture *numText[imgCount];
-
 
 int choosingSokobalLVL(){
-    int lvlCount = findLVLCount();
-    const char *window_title = "SOKOBAN";
+    int lvlCount = findLVLCount()+1;//because +DIY
 
     SDL_Window  *window = NULL;
     SDL_Renderer *rend = NULL;
 
-    SDL_Surface *numImg[imgCount];
-    SDL_Texture *allNumText[lvlCount];
-    SDL_Rect xNum[imgCount];
+    SDL_Rect xNum[imgCount+1];//+1 because +DIY
 
-
-
-    Uint32 render_flags = SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC;
     SDL_Init(SDL_INIT_EVERYTHING);
 
-
-
-    if(SDL_Init(SDL_INIT_EVERYTHING) != 0)
-    {
+    if(SDL_Init(SDL_INIT_EVERYTHING) != 0) {
         printf("Failed to initialize SDL: %s\n", SDL_GetError());
         SDL_Quit();
         return -1;
@@ -708,67 +645,29 @@ int choosingSokobalLVL(){
 
     window = SDL_CreateWindow(window_title, SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,CHOOSING_WINDOW_WIDTH, CHOOSING_WINDOW_HEIGHT, 0);
 
-    if(!window)
-    {
+    if(!window) {
         printf("Failed to initalize window: %s\n", SDL_GetError());
         SDL_Quit();
         return -1;
     }
 
     rend = SDL_CreateRenderer(window, -1, render_flags);
-    if(!rend)
-    {
+    if(!rend) {
         printf("Failed to initialize renderer: %s\n", SDL_GetError());
         SDL_DestroyWindow(window);
         SDL_Quit();
         return -1;
     }
-    SDL_Surface *icon = IMG_Load(resources[6]);
-    for(int i = 0; i < imgCount; i++){
-        numImg[i] = IMG_Load(numbersPaths[i]);
-        if (!numImg[i] && !icon){
-            printf("Failed to load images\n");
-            //Destroys initalized components and quits
-            SDL_DestroyRenderer(rend);
-            SDL_DestroyWindow(window);
-            SDL_Quit();
-            return -1;
-        }
+
+    if(initText(rend) == -1){
+        SDL_DestroyRenderer(rend);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return -1;
     }
     SDL_SetWindowIcon(window, icon);
-    SDL_FreeSurface(icon);
 
     int texWidth = CHOOSING_WINDOW_WIDTH/10, texHeight = CHOOSING_WINDOW_HEIGHT/10;
-
-    for(int i = 0; i < lvlCount; i++){
-        allNumText[i] = SDL_CreateTexture(rend, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, texWidth, texHeight);
-    }
-
-    for(int i = 0; i < imgCount; i++){
-        numText[i] = SDL_CreateTextureFromSurface(rend, numImg[i]);
-        SDL_FreeSurface(numImg[i]);
-        if (!numText[i]){
-            printf("Failed to texturize images\n");
-            for(int j = i; j < imgCount; j++) SDL_FreeSurface(numImg[j]);
-            SDL_DestroyRenderer(rend);
-            SDL_DestroyWindow(window);
-            SDL_Quit();
-            return -1;
-        }
-    }
-    for(int i = 0; i < lvlCount; i++){
-        if (!allNumText[i]){
-            printf("Failed to texturize images\n");
-            SDL_DestroyRenderer(rend);
-            SDL_DestroyWindow(window);
-            SDL_Quit();
-            return -1;
-        }
-    }
-
-    for (int i = 1; i <= lvlCount; i++) {
-        combineNumTexture(rend, i, allNumText[i-1], texWidth, texHeight);
-    }
     
     SDL_Rect xBackground = {0,0,CHOOSING_WINDOW_WIDTH,CHOOSING_WINDOW_HEIGHT};
     SDL_Rect xTargeted = {0,0,0,0};
@@ -781,7 +680,6 @@ int choosingSokobalLVL(){
     int currLVL = 0;
     int choosedLVL = -1;
     
-
     while(!request_quit)
     { 
         //Processes events
@@ -811,7 +709,7 @@ int choosingSokobalLVL(){
                 case SDL_SCANCODE_S:
                 case SDL_SCANCODE_DOWN:
                     currLVL+=5;
-                    if(currLVL >= lvlCount) currLVL =lvlCount-1;
+                    if(currLVL >= lvlCount) currLVL = lvlCount-1;
                     break;
                 case SDL_SCANCODE_W:
                 case SDL_SCANCODE_UP:
@@ -820,15 +718,14 @@ int choosingSokobalLVL(){
                     break;
                 case SDL_SCANCODE_RETURN://aka enter
                     request_quit = 1;
-                    choosedLVL = currLVL+1;
+                    choosedLVL = currLVL;
                 }
             default:
             break;
             }
         }
     SDL_RenderClear(rend);
-
-    SDL_RenderCopy(rend, numText[0], NULL, &xBackground);
+    SDL_RenderCopy(rend, resTex[0], NULL, &xBackground);
 
     for(int i = 0; i < lvlCount; i++){
         xNum[i].w = texWidth;
@@ -839,26 +736,19 @@ int choosingSokobalLVL(){
     
     for(int i = 0; i < lvlCount; i++){
         if(i == currLVL) {
-            SDL_RenderCopy(rend, numText[2], NULL, &xNum[i]);
+            SDL_RenderCopy(rend, resTex[3], NULL, &xNum[i]);
             xTargeted.x = xNum[i].x + xNum[i].w/10;
             xTargeted.y = xNum[i].y + xNum[i].h/10;
-            SDL_RenderCopy(rend, numText[1], NULL, &xTargeted);
-            SDL_RenderCopy(rend, allNumText[i], NULL, &xTargeted);
+            SDL_RenderCopy(rend, i == 0 ? resTex[14] : allNumText[i-1], NULL, &xTargeted);
 
         } else {
-            SDL_RenderCopy(rend, allNumText[i], NULL, &xNum[i]);
+            SDL_RenderCopy(rend, i == 0 ? resTex[14] : allNumText[i-1], NULL, &xNum[i]);
         }
     }
     SDL_RenderPresent(rend);
     }
 
-    for(int i = 0; i < imgCount; i++)
-        SDL_DestroyTexture(numText[i]);
-
-    for(int i = 0; i < lvlCount; i++)
-        SDL_DestroyTexture(allNumText[i]);
-
-
+    destroyText();
     SDL_DestroyRenderer(rend);
     SDL_DestroyWindow(window);
     SDL_Quit();
@@ -902,15 +792,373 @@ int combineNumTexture(SDL_Renderer *rend, int digit, SDL_Texture *targetTexture,
 
     SDL_Rect xTar = {0,0,texWidth, texHeight};
     SDL_Rect xPart = {0, texHeight/2 - texHeight/(2*strLen), texWidth/strLen, texHeight/(strLen)};
-    SDL_RenderCopy(rend, numText[1], NULL, &xTar);
+    SDL_RenderCopy(rend, resTex[1], NULL, &xTar);
     int texPos = 0;//0 == 48 , 9 == 57
     for (int i = 0; i < strLen; i++) {
         texPos = str[i]-48 == 0 ? 10 : str[i]-48;//1234567890 0 -> 10
-        SDL_RenderCopy(rend, numText[notNum + texPos - 1], NULL, &xPart);
+        SDL_RenderCopy(rend, numText[texPos-1], NULL, &xPart);
         xPart.x += xPart.w;
     }
     SDL_SetRenderTarget(rend, NULL);
     SDL_RenderClear(rend);
 
+    return 0;
+}
+
+//------------------DO YOUR OWN LEVEL----------------------------
+
+bool hasRect(int x, int y, int length, SDL_Rect objects[length]);
+
+int makeLevel(){
+    SDL_Window  *window = NULL;
+    SDL_Renderer *rend = NULL;
+
+    SDL_Rect xObj = {0,0,0,0};
+    SDL_Rect xObjects[MAX_HEIGHT*MAX_WIDTH] = {xObj};
+    int objText[MAX_HEIGHT*MAX_WIDTH] = {0};
+    char field[MAX_HEIGHT][MAX_WIDTH];
+
+    for(int x = 0; x < MAX_HEIGHT; x++) for(int y = 0; y < MAX_WIDTH; y++) field[y][x] = '0';
+
+    SDL_Init(SDL_INIT_EVERYTHING);
+
+    if(SDL_Init(SDL_INIT_EVERYTHING) != 0)
+    {
+        printf("Failed to initialize SDL: %s\n", SDL_GetError());
+        SDL_Quit();
+        return -1;
+    }
+
+    window = SDL_CreateWindow(window_title, SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED, CHOOSING_WINDOW_WIDTH, CHOOSING_WINDOW_HEIGHT, 0);
+
+    if(!window)
+    {
+        printf("Failed to initalize window: %s\n", SDL_GetError());
+        SDL_Quit();
+        return -1;
+    }
+
+    rend = SDL_CreateRenderer(window, -1, render_flags);
+    if(!rend)
+    {
+        printf("Failed to initialize renderer: %s\n", SDL_GetError());
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return -1;
+    }
+
+    if(initText(rend) == -1){
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return -1;
+    }
+
+    SDL_Rect xBackground = {0,0, CHOOSING_WINDOW_WIDTH, CHOOSING_WINDOW_HEIGHT};
+    int request_quit = 0;
+    SDL_Rect movRect = {texWidth,texHeight,texWidth,texHeight};
+    int frameCount = 0, currTex = 0, fieldLength = 0, clickCount = 0;
+
+    bool grow = false;
+    bool choosingBorders = true;
+
+    bool setBuilder = false; 
+    int placedBoxCount = 0, placedTargetCount = 0;
+
+    int mouseX = 0, mouseY = 0;
+
+    while(!request_quit){
+
+        if(frameCount == 65){
+            grow = !grow;
+            frameCount = 0;
+        }
+        if(frameCount%2 == 0 && !choosingBorders){
+            movRect.w += grow ? 1 : -1;
+            movRect.h += grow ? 1 : -1;
+            movRect.x += frameCount%4 == 0 ? 0 : grow ? -1 : 1;
+            movRect.y += frameCount%4 == 0 ? 0 : grow ? -1 : 1;
+        }
+
+        if(!choosingBorders)frameCount++;
+
+        //Processes events
+        SDL_Event event;
+        while(SDL_PollEvent(&event))
+        {
+            switch (event.type)
+            {
+            case SDL_QUIT:
+                request_quit = 1;
+                break;
+            case SDL_MOUSEBUTTONDOWN:
+                if(choosingBorders) break;
+                
+                int x = movRect.x - movRect.x%texWidth, y = movRect.y - movRect.y%texHeight;
+
+                if(hasRect(x, y, clickCount, xObjects)) break;
+
+                xObjects[clickCount] = movRect;
+                xObjects[clickCount].x = x;
+                xObjects[clickCount].y = y;
+                xObjects[clickCount].w = texWidth;
+                xObjects[clickCount].h = texHeight;
+                objText[clickCount] = currTex;
+                char c = '0';
+                switch (currTex){
+                case 1:
+                    c = 'B';
+                    placedBoxCount++;
+                    break;
+                case 2:
+                    c = '|';
+                    break;
+                case 3:
+                    c = 'X';
+                    placedTargetCount++;
+                    break;
+                case 4:
+                    if(setBuilder) break;
+                    
+                    c = 'I';
+                    setBuilder = true;
+                    break;
+                default:
+                    c = '0';
+                    break;
+                }
+                field[xObjects[clickCount].y/texHeight][xObjects[clickCount].x / texWidth] = c;
+                clickCount++;
+                break;
+            case SDL_MOUSEMOTION:
+                if(choosingBorders) break;
+                mouseX = event.motion.x;
+                mouseY = event.motion.y;
+
+                movRect.x += mouseX <= movRect.x ? -texWidth : mouseX >= movRect.x && mouseX <= movRect.x + texWidth ? 0 : texWidth;
+                movRect.y += mouseY <= movRect.y ? -texHeight : mouseY >= movRect.y && mouseY <= movRect.y + texHeight ? 0 : texHeight;
+                movRect.x += movRect.x < 0 ? texWidth : movRect.x > CHOOSING_WINDOW_WIDTH ? -texWidth : 0;
+                movRect.y += movRect.y < 0 ? texHeight : movRect.y > CHOOSING_WINDOW_HEIGHT ? -texHeight : 0;
+
+                break;
+
+            case SDL_KEYDOWN:
+                switch (event.key.keysym.scancode)
+                {
+                case SDL_SCANCODE_ESCAPE:
+                    request_quit = 1;
+                    break;
+                case SDL_SCANCODE_A:
+                case SDL_SCANCODE_LEFT:
+                    if(!choosingBorders){
+                        if(currTex > 1) currTex--;
+                    } else {
+                        if(currTex >= 1) {
+                            currTex--;
+                            for(int i = 0; i < currTex; i++){
+                                xObjects[i].w = CHOOSING_WINDOW_WIDTH/currTex;
+                                xObjects[i].h = CHOOSING_WINDOW_HEIGHT/currTex;
+                                xObjects[i].x = i == 0 ? 0 : xObjects[i-1].x + xObjects[i].w;
+                                xObjects[i].y = i == 0 ? 0 : xObjects[i-1].y + xObjects[i].h;
+                            }
+                        }
+                    }
+                    break;
+                case SDL_SCANCODE_D:
+                case SDL_SCANCODE_RIGHT:
+                    if(!choosingBorders){
+                        if(currTex < 4)currTex++;
+                    } else {
+                        if(currTex < maxLVL){
+                            currTex++;
+                            for(int i = 0; i < currTex; i++){
+                                xObjects[i].w = CHOOSING_WINDOW_WIDTH/currTex;
+                                xObjects[i].h = CHOOSING_WINDOW_HEIGHT/currTex;
+                                xObjects[i].x = i == 0 ? 0 : xObjects[i-1].x + xObjects[i].w;
+                                xObjects[i].y = i == 0 ? 0 : xObjects[i-1].y + xObjects[i].h;
+                            }
+                        }
+                    }
+                    break;
+                case SDL_SCANCODE_RETURN://aka enter
+                    if(!choosingBorders) {
+                        if(!setBuilder || placedTargetCount != placedBoxCount) break;
+
+                        request_quit = 2;
+                    }
+                    else {
+                        if(currTex == 0) break;
+
+                        fieldLength = currTex;
+                        currTex = 1;
+                        choosingBorders = false;
+                        texWidth = xObjects[0].w;
+                        texHeight = xObjects[0].h;
+                        movRect.h = texHeight;
+                        movRect.w = texWidth;
+                        movRect.x = 0;
+                        movRect.y = 0;   
+                    }
+                    break;
+                case SDL_SCANCODE_P:
+                    printf("\n");
+                    for(int y = 0; y < fieldLength; y++){
+                        for(int x = 0; x < fieldLength; x++){
+                            printf("%c ", field[y][x]);
+                        }
+                        printf("\n"); 
+                    }
+                    break;
+                case SDL_SCANCODE_Z:
+                    if(clickCount <= 0) break;
+                    
+                    clickCount--;
+                    int x = xObjects[clickCount].x/texWidth, y = xObjects[clickCount].y/texHeight;
+                    field[y][x] = '0';
+                    break;
+                case SDL_SCANCODE_R:
+                    clickCount = 0;
+                    for(int y = 0; y < fieldLength; y++) for(int x = 0; x < fieldLength; x++) field[y][x] = '0';
+                    break;
+                default:
+                    break;  
+                }
+
+            default:
+                break;
+            }
+        }
+
+        SDL_RenderClear(rend);
+        if(choosingBorders){
+            if(currTex < 5){
+                SDL_RenderCopy(rend, resTex[1], NULL, &xBackground);
+                for (int i = 0; i < currTex; i++) {
+                    SDL_RenderCopy(rend, resTex[2], NULL, &xObjects[i]);
+                }
+                SDL_RenderCopy(rend, numText[currTex == 0 ? 9 : currTex-1], NULL, &xBackground);
+            }
+            else{
+                SDL_RenderCopy(rend, allNumText[currTex-1], NULL, &xBackground);
+                for (int i = 0; i < currTex; i++) {
+                    SDL_RenderCopy(rend, resTex[2], NULL, &xObjects[i]);
+                }
+            }
+        } else {
+
+            SDL_RenderCopy(rend, resTex[0], NULL, &xBackground);
+            for(int i = 0; i < clickCount; i++){
+                SDL_RenderCopy(rend, resTex[objText[i]], NULL, &xObjects[i]);
+            }
+
+            SDL_RenderCopy(rend, resTex[currTex], NULL, &movRect);
+        }
+        SDL_RenderPresent(rend);
+
+        SDL_Delay(1000 / 120);
+    }
+
+    destroyText();
+
+    SDL_DestroyRenderer(rend);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    if(request_quit == 1) return 1;
+
+    int lvlCount = findLVLCount();
+
+    input = fopen(FILE_NAME, "a");
+
+    fprintf(input, "\n%d %d %d\n", lvlCount+1, fieldLength, fieldLength);
+    for(int y = 0; y < fieldLength; y++){
+        for(int x = 0; x < fieldLength; x++){
+            fprintf(input, "%c", field[y][x]);
+        }
+        fprintf(input, "\n");
+    }
+
+    fclose(input);
+    return 2;
+}
+
+bool hasRect(int x, int y, int length, SDL_Rect objects[length]){
+    for(int i = 0; i < length; i++)
+        if(x == objects[i].x && y == objects[i].y) return true;
+    return false;
+}
+
+//------------------INITIOLIZE AND DESTROY TEXTURES--------------
+
+int initText(SDL_Renderer *rend){
+    SDL_Surface *numImg[imgCount];
+    SDL_Surface *resSurf[resourcesCount];
+
+    bool error = false;
+
+    for(int i = 0; i < imgCount; i++){
+        numImg[i] = IMG_Load(numbersPaths[i]);
+        if (!numImg[i]) {
+            error = true;
+            printf("Problem in: %s\n", numbersPaths[i]);
+        }
+    }
+
+    for(int i = 0; i < resourcesCount; i++){
+        resSurf[i] = IMG_Load(resources[i]);
+        if (!resSurf[i]) {
+            error = true;
+            printf("Problem in: %s\n", resources[i]);
+        }
+    }
+    icon = IMG_Load(resources[6]);
+    if(!icon) error = true;
+
+    if(error){
+        printf("Failed to load images\n");
+        return -1;
+    }
+
+
+    for(int i = 0; i < maxLVL; i++){
+        allNumText[i] = SDL_CreateTexture(rend, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, texWidth, texHeight);
+    }
+
+    for(int i = 0; i < imgCount; i++){
+        numText[i] = SDL_CreateTextureFromSurface(rend, numImg[i]);
+        SDL_FreeSurface(numImg[i]);
+        if (!numText[i]) error = true;
+    }
+
+    for(int i = 0; i < resourcesCount; i++){
+        resTex[i] = SDL_CreateTextureFromSurface(rend, resSurf[i]);
+        SDL_FreeSurface(resSurf[i]);
+        if(!resTex[i]) error = true;
+    }
+
+    for(int i = 0; i < maxLVL; i++){
+        if (!allNumText[i]) error = true;
+    }
+
+    if (error) {
+        printf("Failed to texturize images\n");
+        return -1;
+    }
+
+    for (int i = 1; i <= maxLVL; i++) 
+        combineNumTexture(rend, i, allNumText[i-1], texWidth, texHeight);
+
+    return 0;
+}
+
+int destroyText(){
+    for(int i = 0; i < imgCount; i++)
+        SDL_DestroyTexture(numText[i]);
+
+    for(int i = 0; i < maxLVL; i++)
+        SDL_DestroyTexture(allNumText[i]);
+
+    for(int i = 0; i < resourcesCount; i++)
+        SDL_DestroyTexture(resTex[i]);
+
+    SDL_FreeSurface(icon);
     return 0;
 }
