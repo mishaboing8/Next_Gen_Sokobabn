@@ -6,18 +6,16 @@
 #include <SDL_mixer.h>
 
 //--------------GUI CHARACTERISTICS--------------------------
-int TEX_X_COUNT;
+int TEX_X_COUNT;//Objects maximal possible count in x and y achse
 int TEX_Y_COUNT;
 
-int const WINDOW_WIDTH = 640;
+int const WINDOW_WIDTH = 640;//gaming window screen
 int WINDOW_HEIGHT;
 
-int const maxLVL = 30;
-int WIDTH_RELATIVETY;
+int WIDTH_RELATIVETY;//how bright or long are textures
 int HEIGHT_RELATIVETY;
 
 int const resourcesCount = 15;
-
 char const *resources[resourcesCount] = {
                             "resources/background.png", 
                             "resources/box.png", "resources/wall.png","resources/target.png",
@@ -29,7 +27,6 @@ char const *resources[resourcesCount] = {
                             };
 
 int const imgCount = 10;
-
 char const *numbersPaths[imgCount] = {
                     "resources/numbers/one.png", "resources/numbers/two.png", 
                     "resources/numbers/three.png", "resources/numbers/four.png", 
@@ -37,8 +34,9 @@ char const *numbersPaths[imgCount] = {
                     "resources/numbers/seven.png", "resources/numbers/eight.png", 
                     "resources/numbers/nine.png", "resources/numbers/zero.png"};
 
+int const maxLVL = 30;//maximal possible level
 
-SDL_Texture *resTex[resourcesCount];
+SDL_Texture *resTex[resourcesCount];//all textures
 SDL_Texture *numText[imgCount];
 SDL_Texture *allNumText[maxLVL];
 
@@ -80,7 +78,7 @@ box target = 'X'
 */
 
 
-int initText(SDL_Renderer *rend);
+int initText(SDL_Renderer *rend);//init and destroy textures
 int destroyText();
 
 
@@ -89,29 +87,26 @@ int loadLevel();//same as loadField, but with error catching loop
 void printField(SDL_Rect* xBuilder, SDL_Rect xWalls[wallsCount], SDL_Rect xBoxes[targetCount], SDL_Rect xTargets[targetCount]);
 void findHero();//finds main character on map(if there exists more than one character, main will be the most uppier(up) and leftier(left))
 
-void stepLeft();
-void stepRight();
-void stepUp();
-void stepDown();
+int stepLeft();
+int stepRight();
+int stepUp();
+int stepDown();
 
 int readyTargetCount();//returns all targets count, that are with boxes (box on target)
 bool isOnTarget(int x, int y);//returns true if object on this coord is on target
 
-int play();
-int makeLevel();
-int choosingSokobalLVL();
+int play();//play level
+int makeLevel();//DIY mode
+int choosingSokobalLVL();//choose level
 
 int main(int argc, char* argv[])
 {
-    int choose = 0;
-    while (true) {
-        xPos = 0, yPos = 0;
-        targetCount = 0;
+    while (true) {//main loop
+        currLVL = 0;
         if(loadLevel() == -1) return 0;//load level heigt and width of field
         if(currLVL == 0) makeLevel();
         else play();
     }
-
     destroyText();
     
     return 0;
@@ -227,16 +222,8 @@ int play(){
     }
         xWin.x = WINDOW_WIDTH/2 - xWin.w/2;
         xWin.y = WINDOW_HEIGHT/2 - xWin.h/2;
-
-    for(int i = 0; i < wallsCount; i++)
-         SDL_QueryTexture(resTex[2], NULL, NULL, &xWalls[i].w, &xWalls[i].h);
     
-    for (int i = 0; i < targetCount; i++) {
-        SDL_QueryTexture(resTex[3], NULL, NULL, &xTargets[i].w, &xTargets[i].h);
-        SDL_QueryTexture(resTex[1], NULL, NULL, &xBoxes[i].w, &xBoxes[i].h);
-    }
-    
-    //Reorder positions and dimensions of textures
+    //Reorder positions and dimensions of textures (scaling)
     xBackground.w = WINDOW_WIDTH;
     xBackground.h = WINDOW_HEIGHT;
 
@@ -284,12 +271,12 @@ int play(){
     SDL_RenderClear(rend);
 
 
-    int wonFrameRate = 0;
-    bool coolMode = false, startCoolMode = false;
+    int wonFrameRate = 0;//wining art timing
+    bool coolMode = false, startCoolMode = false;//cool mode and google falling mode
     int coolBoxOn[targetCount];
     int coolWallOn[wallsCount];
     int frameCount = 0;
-    srand(time(NULL));
+    srand(time(NULL));//randome textures by cool mode
     for(int i = 0; i < targetCount; i++)
         coolBoxOn[i] = rand() % 2 == 0 ? 0 : 1;
 
@@ -299,6 +286,7 @@ int play(){
     //Initializes game loop
     while(!request_quit)
     {
+        //locate all objects
         printField(&xBuilder, xWalls, xBoxes, xTargets);
         xGoog.x = xBuilder.x;
 
@@ -327,7 +315,7 @@ int play(){
                 case SDL_SCANCODE_ESCAPE:
                     request_quit = 1;
                     break;
-                case SDL_SCANCODE_R:
+                case SDL_SCANCODE_R://reload level
                     loadField(currLVL);
                     break;
                 case SDL_SCANCODE_W:
@@ -348,7 +336,6 @@ int play(){
                     break;
                 case SDL_SCANCODE_B:
                     startCoolMode = true;
-
                     break;
                 }
                 break;
@@ -361,7 +348,7 @@ int play(){
         //Copies textures to buffer and presents them to screen
         SDL_RenderCopy(rend, !coolMode ? targetTexture : coolTargetTexture, NULL, NULL);
 
-        if(frameCount == 25) {
+        if(frameCount == 25) {//every 255th frame change cool textures(25 becouse of soundtrack ritmus)
             for(int i = 0; i < targetCount; i++)
                 coolBoxOn[i] = rand() % 2 == 0 ? 7 : 8;
 
@@ -370,7 +357,8 @@ int play(){
 
             frameCount = 0;
         }
-        for(int i = 0; i < targetCount; i++)
+
+        for(int i = 0; i < targetCount; i++)//show textures cool or normal
             SDL_RenderCopy(rend, !coolMode ? resTex[1] : resTex[coolBoxOn[i]], NULL, &xBoxes[i]);
 
         for(int i = 0; i < wallsCount; i++)
@@ -379,9 +367,8 @@ int play(){
         SDL_RenderCopy(rend, !coolMode ? resTex[4] : resTex[9], NULL, &xBuilder);
 
         
-        if(startCoolMode && !coolMode){
+        if(startCoolMode && !coolMode)
             SDL_RenderCopy(rend, resTex[10], NULL, &xGoog);
-        }
 
         if(readyTargetCount() == targetCount || wonFrameRate > 0){
             SDL_RenderCopy(rend, resTex[5], NULL, &xWin);
@@ -395,9 +382,9 @@ int play(){
 
         if(wonFrameRate == 100) break;
     }
+    //close and free resources
     Mix_CloseAudio();
     Mix_FreeMusic(backAudio);
-
 
     destroyText();
     SDL_DestroyRenderer(rend);
@@ -414,7 +401,7 @@ void printField(SDL_Rect* xBuilder, SDL_Rect xWalls[wallsCount], SDL_Rect xBoxes
         for(int j = 0; j < width; j++){
             switch (field[i][j])
             {
-            case '*':
+            case '*'://target with box
                 xTargets[tCount].x = j * WIDTH_RELATIVETY;
                 xTargets[tCount].y = i * HEIGHT_RELATIVETY;
                 tCount++;
@@ -432,7 +419,7 @@ void printField(SDL_Rect* xBuilder, SDL_Rect xWalls[wallsCount], SDL_Rect xBoxes
                 xTargets[tCount].y = i * HEIGHT_RELATIVETY;
                 tCount++;
                 break;
-            case '\\':
+            case '\\'://walls (in console version)
             case '/':
             case '|':
             case '-':
@@ -465,19 +452,18 @@ int loadField(int level){
     int prevLVL = 10;//if there is infinity loop(if lvl not exist), it will roll with same lvl again and again
                         //so if previous lvl == current level -> return error code
     while(1){
-        fscanf(input, "%d", &currLVL);
+        fscanf(input, "%d", &currLVL);//read lvl width and height of level
         fscanf(input, "%d", &width);
         fscanf(input, "%d", &height);
-        if(currLVL == prevLVL) return -1;
+        if(currLVL == prevLVL) return -1;//if loop -> return error
         if (currLVL == level) {
             fscanf(input, "%c", &currChar);//skip new lines char 
             break;//arrived to neccesary level
         }
-        else 
-            for (int i = 0; i < height; i++)
+        else for (int i = 0; i < height; i++)
                 fscanf(input, "%s", line);//skip current level lines
             
-           prevLVL = currLVL; 
+        prevLVL = currLVL; 
     }
 
 
@@ -486,24 +472,21 @@ int loadField(int level){
             fscanf(input, "%c", &currChar);
 
             if(currChar == '\n') continue;//skip new line
-            else {
-                if(currChar == 'X' || currChar == '*'){
-                    targetXPos[targetCount] = j;
-                    targetYPos[targetCount] = i;
-                    targetCount++;
-                }
-                if(currChar == '-' || currChar == '|' || currChar == '\\' || currChar == '/')
-                    wallsCount++;
-                
-                
-                field[i][j] = currChar == '*' ? 'B' : currChar;
+        
+            if(currChar == 'X' || currChar == '*'){
+                targetXPos[targetCount] = j;
+                targetYPos[targetCount] = i;
+                targetCount++;
             }
+            if(currChar == '-' || currChar == '|' || currChar == '\\' || currChar == '/') wallsCount++;
+
+            field[i][j] = currChar == '*' ? 'B' : currChar;
         }
     }
 
-        findHero();
-        fclose(input);
-        return 1;
+    findHero();
+    fclose(input);
+    return 1;
 }
 
 void findHero(){
@@ -527,12 +510,12 @@ void allocateTargets(){//on the places where were boxes or main character could 
             field[targetYPos[i]][targetXPos[i]] = 'X';
 }
 
-void stepLeft(){
+int stepLeft(){
     if(xPos <= 0 || isWall(xPos - 1, yPos)) // wall or out of bounds
-        return;
+        return 0;
 
     if(field[yPos][xPos - 1] == 'B' && (isWall(xPos - 2, yPos) || field[yPos][xPos-2] == 'B' || xPos-2 < 0))//after box are wall/anoter box/out of bounds
-        return;
+        return 0;
 
     if(field[yPos][xPos - 1] == 'B')
         field[yPos][xPos - 2] = 'B';//move box
@@ -542,15 +525,15 @@ void stepLeft(){
     field[yPos][xPos] = 'I';
 
     allocateTargets();//set all targets, because on their positions can stay zero char
-    return;
+    return 1;
 }
 
-void stepRight(){
+int stepRight(){
     if(xPos >= width - 1 || isWall(xPos + 1, yPos)) // wall or out of bounds
-        return;
+        return 0;
 
     if(field[yPos][xPos + 1] == 'B' && (isWall(xPos + 2, yPos) || field[yPos][xPos+2] == 'B' || xPos+2 > width - 1))//after box are wall/anoter box/out of bounds
-        return;
+        return 0;
 
     if(field[yPos][xPos + 1] == 'B')
         field[yPos][xPos + 2] = 'B';//move box
@@ -560,15 +543,15 @@ void stepRight(){
     field[yPos][xPos] = 'I';
 
     allocateTargets();//set all targets, because on their positions can stay zero char
-    return;
+    return 1;
 }
 
-void stepUp(){
+int stepUp(){
     if(yPos <= 0 || isWall(xPos, yPos-1)) // wall or out of bounds
-        return;
+        return 0;
 
     if(field[yPos-1][xPos] == 'B' && (isWall(xPos, yPos-2) || field[yPos-2][xPos] == 'B' || yPos-2 < 0))//after box are wall/anoter box/out of bounds
-        return;
+        return 0;
 
     if(field[yPos-1][xPos] == 'B')
         field[yPos-2][xPos] = 'B';//move box
@@ -578,15 +561,15 @@ void stepUp(){
     field[yPos][xPos] = 'I';
 
     allocateTargets();//set all targets, because on their positions can stay zero char
-    return;
+    return 1;
 }
 
-void stepDown(){
+int stepDown(){
     if(yPos >= height - 1 || isWall(xPos, yPos+1)) // wall or out of bounds
-        return;
+        return 0;
 
     if(field[yPos+1][xPos] == 'B' && (isWall(xPos, yPos+2) || field[yPos+2][xPos] == 'B' || yPos+2 > height - 1))//after box are wall/anoter box/out of bounds
-        return;
+        return 0;
 
     if(field[yPos+1][xPos] == 'B')
         field[yPos+2][xPos] = 'B';//move box
@@ -596,7 +579,7 @@ void stepDown(){
     field[yPos][xPos] = 'I';
 
     allocateTargets();//set all targets, because on their positions can stay zero char
-    return;
+    return 1;
 }
 
 bool isOnTarget(int x, int y){
@@ -606,7 +589,7 @@ bool isOnTarget(int x, int y){
     return false;
 }
 
-int readyTargetCount(){
+int readyTargetCount(){//boxes on target count
     int count = 0;
     for(int i = 0; i < height; i++)
         for(int j = 0; j < width; j++)
@@ -626,14 +609,12 @@ int texWidth = CHOOSING_WINDOW_WIDTH/10, texHeight = CHOOSING_WINDOW_HEIGHT/10;
 int findLVLCount();
 int combineNumTexture(SDL_Renderer *rend, int digit, SDL_Texture *targetTexture, int texWidth, int texHeight);
 
-
 int choosingSokobalLVL(){
     int lvlCount = findLVLCount()+1;//because +DIY
-
     SDL_Window  *window = NULL;
     SDL_Renderer *rend = NULL;
 
-    SDL_Rect xNum[imgCount+1];//+1 because +DIY
+    SDL_Rect xNum[lvlCount+1];//+1 because +DIY
 
     SDL_Init(SDL_INIT_EVERYTHING);
 
@@ -700,20 +681,20 @@ int choosingSokobalLVL(){
                     break;
                 case SDL_SCANCODE_A:
                 case SDL_SCANCODE_LEFT:
-                    if(--currLVL < 0) currLVL = lvlCount-1;                    
+                    if(--currLVL < 0) currLVL = lvlCount-1;//if out of bounds -> take last
                     break;
                 case SDL_SCANCODE_D:
                 case SDL_SCANCODE_RIGHT:
-                    if(++currLVL >= lvlCount) currLVL = 0; 
+                    if(++currLVL >= lvlCount) currLVL = 0; //out of bounds take first
                     break;
                 case SDL_SCANCODE_S:
                 case SDL_SCANCODE_DOWN:
-                    currLVL+=5;
+                    currLVL+=5;//skip line
                     if(currLVL >= lvlCount) currLVL = lvlCount-1;
                     break;
                 case SDL_SCANCODE_W:
                 case SDL_SCANCODE_UP:
-                    currLVL-=5;
+                    currLVL-=5;//skip line
                     if (currLVL < 0) currLVL = 0;
                     break;
                 case SDL_SCANCODE_RETURN://aka enter
@@ -727,7 +708,7 @@ int choosingSokobalLVL(){
     SDL_RenderClear(rend);
     SDL_RenderCopy(rend, resTex[0], NULL, &xBackground);
 
-    for(int i = 0; i < lvlCount; i++){
+    for(int i = 0; i < lvlCount; i++){//locate numbers in ordered lines with 5 numbers in line
         xNum[i].w = texWidth;
         xNum[i].h = texHeight;
         xNum[i].x = i == 0 ? texWidth/2 : i%5 == 0 ? xNum[i-5].x : xNum[i-1].x+texWidth*2;
@@ -735,12 +716,11 @@ int choosingSokobalLVL(){
     }
     
     for(int i = 0; i < lvlCount; i++){
-        if(i == currLVL) {
+        if(i == currLVL) {//if target on choosed texture
             SDL_RenderCopy(rend, resTex[3], NULL, &xNum[i]);
             xTargeted.x = xNum[i].x + xNum[i].w/10;
             xTargeted.y = xNum[i].y + xNum[i].h/10;
             SDL_RenderCopy(rend, i == 0 ? resTex[14] : allNumText[i-1], NULL, &xTargeted);
-
         } else {
             SDL_RenderCopy(rend, i == 0 ? resTex[14] : allNumText[i-1], NULL, &xNum[i]);
         }
@@ -766,7 +746,7 @@ int findLVLCount(){
         fscanf(input, "%d", &currLVL);
         fscanf(input, "%d", &height);
         fscanf(input, "%d", &height);
-        if(currLVL == prevLVL) return currLVL;
+        if(currLVL == prevLVL || currLVL == maxLVL) return currLVL;
 
         for (int i = 0; i < height; i++)
             fscanf(input, "%s", line);//skip current level lines
@@ -777,6 +757,7 @@ int findLVLCount(){
 }
 
 int combineNumTexture(SDL_Renderer *rend, int digit, SDL_Texture *targetTexture, int texWidth, int texHeight){
+    //transforms digit to string(char array)
     char str[10];
     sprintf(str, "%d", digit);
     int strLen = 0;
@@ -791,8 +772,9 @@ int combineNumTexture(SDL_Renderer *rend, int digit, SDL_Texture *targetTexture,
     SDL_SetRenderTarget(rend, targetTexture);
 
     SDL_Rect xTar = {0,0,texWidth, texHeight};
-    SDL_Rect xPart = {0, texHeight/2 - texHeight/(2*strLen), texWidth/strLen, texHeight/(strLen)};
-    SDL_RenderCopy(rend, resTex[1], NULL, &xTar);
+    SDL_Rect xPart = {0, texHeight/2 - texHeight/(2*strLen), texWidth/strLen, texHeight/(strLen)};//xPart is 1/(textureWidth/height)th
+    SDL_RenderCopy(rend, resTex[1], NULL, &xTar);                                                   //example 1 is 1/3 of 213
+
     int texPos = 0;//0 == 48 , 9 == 57
     for (int i = 0; i < strLen; i++) {
         texPos = str[i]-48 == 0 ? 10 : str[i]-48;//1234567890 0 -> 10
@@ -807,18 +789,18 @@ int combineNumTexture(SDL_Renderer *rend, int digit, SDL_Texture *targetTexture,
 
 //------------------DO YOUR OWN LEVEL----------------------------
 
-bool hasRect(int x, int y, int length, SDL_Rect objects[length]);
+bool hasRect(int x, int y, int length, SDL_Rect xObjects[length]);//if given point is in rectange array
 
 int makeLevel(){
     SDL_Window  *window = NULL;
     SDL_Renderer *rend = NULL;
 
     SDL_Rect xObj = {0,0,0,0};
-    SDL_Rect xObjects[MAX_HEIGHT*MAX_WIDTH] = {xObj};
-    int objText[MAX_HEIGHT*MAX_WIDTH] = {0};
+    SDL_Rect xObjects[MAX_HEIGHT*MAX_WIDTH] = {xObj};//maximal object field
+    int objText[MAX_HEIGHT*MAX_WIDTH] = {0};          //and their textures
     char field[MAX_HEIGHT][MAX_WIDTH];
 
-    for(int x = 0; x < MAX_HEIGHT; x++) for(int y = 0; y < MAX_WIDTH; y++) field[y][x] = '0';
+    for(int x = 0; x < MAX_HEIGHT; x++) for(int y = 0; y < MAX_WIDTH; y++) field[y][x] = '0';//fill array with spaces
 
     SDL_Init(SDL_INIT_EVERYTHING);
 
@@ -854,25 +836,25 @@ int makeLevel(){
     }
 
     SDL_Rect xBackground = {0,0, CHOOSING_WINDOW_WIDTH, CHOOSING_WINDOW_HEIGHT};
-    int request_quit = 0;
-    SDL_Rect movRect = {texWidth,texHeight,texWidth,texHeight};
+    
+    SDL_Rect movRect = {texWidth,texHeight,texWidth,texHeight};//choosing (moving square)
     int frameCount = 0, currTex = 0, fieldLength = 0, clickCount = 0;
 
-    bool grow = false;
-    bool choosingBorders = true;
+    bool grow = false;//growing or decreasing mode(moving square)
+    bool choosingBorders = true;//demension mode or drawing
 
-    bool setBuilder = false; 
+    bool placedBuilder = false;//if there exist builder and target and box count (targetC must be boxC)
     int placedBoxCount = 0, placedTargetCount = 0;
 
     int mouseX = 0, mouseY = 0;
 
+    int request_quit = 0;
     while(!request_quit){
-
-        if(frameCount == 65){
+        if(frameCount == 65){//growing or decreasing mode (moving square)
             grow = !grow;
             frameCount = 0;
         }
-        if(frameCount%2 == 0 && !choosingBorders){
+        if(frameCount%2 == 0 && !choosingBorders){//better animation
             movRect.w += grow ? 1 : -1;
             movRect.h += grow ? 1 : -1;
             movRect.x += frameCount%4 == 0 ? 0 : grow ? -1 : 1;
@@ -895,14 +877,15 @@ int makeLevel(){
                 
                 int x = movRect.x - movRect.x%texWidth, y = movRect.y - movRect.y%texHeight;
 
-                if(hasRect(x, y, clickCount, xObjects)) break;
+                if(hasRect(x, y, clickCount, xObjects)) break;//finds and sees if on mouse coord are objects
 
-                xObjects[clickCount] = movRect;
+                xObjects[clickCount] = movRect;//if there are no objects locates them
                 xObjects[clickCount].x = x;
                 xObjects[clickCount].y = y;
                 xObjects[clickCount].w = texWidth;
                 xObjects[clickCount].h = texHeight;
                 objText[clickCount] = currTex;
+                
                 char c = '0';
                 switch (currTex){
                 case 1:
@@ -917,43 +900,44 @@ int makeLevel(){
                     placedTargetCount++;
                     break;
                 case 4:
-                    if(setBuilder) break;
+                    if(placedBuilder) break;
                     
                     c = 'I';
-                    setBuilder = true;
                     break;
                 default:
                     c = '0';
                     break;
                 }
+                if(placedBuilder && 4 == currTex) break;
+                if(currTex == 4) placedBuilder = true;
+
                 field[xObjects[clickCount].y/texHeight][xObjects[clickCount].x / texWidth] = c;
                 clickCount++;
                 break;
             case SDL_MOUSEMOTION:
                 if(choosingBorders) break;
+
                 mouseX = event.motion.x;
                 mouseY = event.motion.y;
-
+                //if mouse is in texture reqtangle -> nothing, otherwise move
                 movRect.x += mouseX <= movRect.x ? -texWidth : mouseX >= movRect.x && mouseX <= movRect.x + texWidth ? 0 : texWidth;
                 movRect.y += mouseY <= movRect.y ? -texHeight : mouseY >= movRect.y && mouseY <= movRect.y + texHeight ? 0 : texHeight;
                 movRect.x += movRect.x < 0 ? texWidth : movRect.x > CHOOSING_WINDOW_WIDTH ? -texWidth : 0;
                 movRect.y += movRect.y < 0 ? texHeight : movRect.y > CHOOSING_WINDOW_HEIGHT ? -texHeight : 0;
 
                 break;
-
             case SDL_KEYDOWN:
-                switch (event.key.keysym.scancode)
-                {
+                switch (event.key.keysym.scancode) {
                 case SDL_SCANCODE_ESCAPE:
                     request_quit = 1;
                     break;
                 case SDL_SCANCODE_A:
                 case SDL_SCANCODE_LEFT:
                     if(!choosingBorders){
-                        if(currTex > 1) currTex--;
+                        if(currTex > 1) currTex--;//box, target or box
                     } else {
                         if(currTex >= 1) {
-                            currTex--;
+                            currTex--;//walls count and their demensions
                             for(int i = 0; i < currTex; i++){
                                 xObjects[i].w = CHOOSING_WINDOW_WIDTH/currTex;
                                 xObjects[i].h = CHOOSING_WINDOW_HEIGHT/currTex;
@@ -966,9 +950,9 @@ int makeLevel(){
                 case SDL_SCANCODE_D:
                 case SDL_SCANCODE_RIGHT:
                     if(!choosingBorders){
-                        if(currTex < 4)currTex++;
+                        if(currTex < 4)currTex++;//box, target or box
                     } else {
-                        if(currTex < maxLVL){
+                        if(currTex < maxLVL){//walls count and their demensions
                             currTex++;
                             for(int i = 0; i < currTex; i++){
                                 xObjects[i].w = CHOOSING_WINDOW_WIDTH/currTex;
@@ -980,17 +964,18 @@ int makeLevel(){
                     }
                     break;
                 case SDL_SCANCODE_RETURN://aka enter
-                    if(!choosingBorders) {
-                        if(!setBuilder || placedTargetCount != placedBoxCount) break;
-
+                    if(!choosingBorders) {//changing modus or finish job
+                        if(!placedBuilder || placedTargetCount != placedBoxCount) break;//to finish builder must be placed 
+                                                                                        //and target amount must be equal to box amount
                         request_quit = 2;
-                    }
-                    else {
-                        if(currTex == 0) break;
+                    } else {
+                        if(currTex == 0) break;//cant choose field with 0 bojects
 
-                        fieldLength = currTex;
-                        currTex = 1;
-                        choosingBorders = false;
+                        fieldLength = currTex;//save field length
+                        currTex = 1;//to start building level texture must be box (not number)
+                        choosingBorders = false;//change mode
+
+                        //texture dimensions in choosed field
                         texWidth = xObjects[0].w;
                         texHeight = xObjects[0].h;
                         movRect.h = texHeight;
@@ -999,7 +984,7 @@ int makeLevel(){
                         movRect.y = 0;   
                     }
                     break;
-                case SDL_SCANCODE_P:
+                case SDL_SCANCODE_P://print field (moustly debugging)
                     printf("\n");
                     for(int y = 0; y < fieldLength; y++){
                         for(int x = 0; x < fieldLength; x++){
@@ -1008,21 +993,20 @@ int makeLevel(){
                         printf("\n"); 
                     }
                     break;
-                case SDL_SCANCODE_Z:
+                case SDL_SCANCODE_Z://erase previos deccision
                     if(clickCount <= 0) break;
                     
                     clickCount--;
                     int x = xObjects[clickCount].x/texWidth, y = xObjects[clickCount].y/texHeight;
                     field[y][x] = '0';
                     break;
-                case SDL_SCANCODE_R:
+                case SDL_SCANCODE_R://erase field
                     clickCount = 0;
                     for(int y = 0; y < fieldLength; y++) for(int x = 0; x < fieldLength; x++) field[y][x] = '0';
                     break;
                 default:
                     break;  
                 }
-
             default:
                 break;
             }
@@ -1030,7 +1014,7 @@ int makeLevel(){
 
         SDL_RenderClear(rend);
         if(choosingBorders){
-            if(currTex < 5){
+            if(currTex < 5){//wall in back ground and numbers front or vice versa
                 SDL_RenderCopy(rend, resTex[1], NULL, &xBackground);
                 for (int i = 0; i < currTex; i++) {
                     SDL_RenderCopy(rend, resTex[2], NULL, &xObjects[i]);
@@ -1044,7 +1028,6 @@ int makeLevel(){
                 }
             }
         } else {
-
             SDL_RenderCopy(rend, resTex[0], NULL, &xBackground);
             for(int i = 0; i < clickCount; i++){
                 SDL_RenderCopy(rend, resTex[objText[i]], NULL, &xObjects[i]);
@@ -1062,14 +1045,15 @@ int makeLevel(){
     SDL_DestroyRenderer(rend);
     SDL_DestroyWindow(window);
     SDL_Quit();
-    if(request_quit == 1) return 1;
 
-    int lvlCount = findLVLCount();
+    if(request_quit == 1) return 1;//if user has typed esc -> escape frome DIY mode 
+                                    //otherwise load filed to file
+    int lvlCount = findLVLCount();//find level count to put our after
 
     input = fopen(FILE_NAME, "a");
 
-    fprintf(input, "\n%d %d %d\n", lvlCount+1, fieldLength, fieldLength);
-    for(int y = 0; y < fieldLength; y++){
+    fprintf(input, "\n%d %d %d\n", lvlCount+1, fieldLength, fieldLength);//load dimensions
+    for(int y = 0; y < fieldLength; y++){//load field
         for(int x = 0; x < fieldLength; x++){
             fprintf(input, "%c", field[y][x]);
         }
@@ -1080,9 +1064,9 @@ int makeLevel(){
     return 2;
 }
 
-bool hasRect(int x, int y, int length, SDL_Rect objects[length]){
+bool hasRect(int x, int y, int length, SDL_Rect xObjects[length]){//if in that point are objects
     for(int i = 0; i < length; i++)
-        if(x == objects[i].x && y == objects[i].y) return true;
+        if(x == xObjects[i].x && y == xObjects[i].y) return true;
     return false;
 }
 
