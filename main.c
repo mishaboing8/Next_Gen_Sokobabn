@@ -9,7 +9,7 @@
 int TEX_X_COUNT;//Objects maximal possible count in x and y achse
 int TEX_Y_COUNT;
 
-int const WINDOW_WIDTH = 640;//gaming window screen
+int const WINDOW_WIDTH = 720;//gaming window screen
 int WINDOW_HEIGHT;
 
 int WIDTH_RELATIVETY;//how bright or long are textures
@@ -998,6 +998,16 @@ int makeLevel(){
                     
                     clickCount--;
                     int x = xObjects[clickCount].x/texWidth, y = xObjects[clickCount].y/texHeight;
+                    switch (field[y][x]) {
+                    case 'X': placedTargetCount--;
+                        break;
+                    case 'B': placedBoxCount--;
+                        break;
+                    case 'I': placedBuilder = false;
+                        break;
+                    default:
+                        break;
+                    }
                     field[y][x] = '0';
                     break;
                 case SDL_SCANCODE_R://erase field
