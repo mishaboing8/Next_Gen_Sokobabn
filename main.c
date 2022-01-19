@@ -1012,6 +1012,10 @@ int makeLevel(){
                     break;
                 case SDL_SCANCODE_R://erase field
                     clickCount = 0;
+                    placedTargetCount = 0;
+                    placedBoxCount = 0;
+                    placedBuilder = false;
+
                     for(int y = 0; y < fieldLength; y++) for(int x = 0; x < fieldLength; x++) field[y][x] = '0';
                     break;
                 default:
