@@ -965,7 +965,7 @@ int makeLevel(){
                     break;
                 case SDL_SCANCODE_RETURN://aka enter
                     if(!choosingBorders) {//changing modus or finish job
-                        if(!placedBuilder || placedTargetCount != placedBoxCount) break;//to finish builder must be placed 
+                        if(!placedBuilder || placedTargetCount != placedBoxCount || placedBoxCount == 0 || placedTargetCount == 0) break;//to finish builder must be placed 
                                                                                         //and target amount must be equal to box amount
                         request_quit = 2;
                     } else {
