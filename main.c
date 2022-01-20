@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <SDL.h>
 #include <SDL_timer.h>
@@ -9,13 +10,21 @@
 int TEX_X_COUNT;//Objects maximal possible count in x and y achse
 int TEX_Y_COUNT;
 
-int const WINDOW_WIDTH = 720;//gaming window screen
+int const WINDOW_WIDTH = 960;//gaming window screen
 int WINDOW_HEIGHT;
 
 int WIDTH_RELATIVETY;//how bright or long are textures
 int HEIGHT_RELATIVETY;
 
-int const resourcesCount = 15;
+int const buildersCount = 11;
+char const *buildersPath[buildersCount] = {"resources/characters/builder.png","resources/characters/panda.png","resources/characters/poop.png",
+                                            "resources/characters/cowBoy.png","resources/characters/nerd.png","resources/characters/skeleton.png",
+                                            "resources/characters/shrek.png", "resources/characters/coolTooth.png", "resources/characters/badTooth.png",
+                                            "resources/characters/malevichSquare.png","resources/characters/spongeBob.png"
+                                            };
+
+
+int const resourcesCount = 18;
 char const *resources[resourcesCount] = {
                             "resources/background.png", 
                             "resources/box.png", "resources/wall.png","resources/target.png",
@@ -23,7 +32,8 @@ char const *resources[resourcesCount] = {
                             "resources/coolBoxOn.png","resources/coolBoxOff.png",
                             "resources/coolBuilder.png", "resources/coolGoogles.png", "resources/coolWall.png",
                             "resources/coolWallUp.png", "resources/coolTarget.png",
-                            "resources/DIY.png"
+                            "resources/DIY.png",
+                            "resources/pressKey.png", "resources/builderClosedEye.png", "resources/chooseBuilder.png"
                             };
 
 int const imgCount = 10;
@@ -40,6 +50,9 @@ SDL_Texture *resTex[resourcesCount];//all textures
 SDL_Texture *numText[imgCount];
 SDL_Texture *allNumText[maxLVL];
 
+SDL_Texture *buildTex[buildersCount];
+int currBuilder = 0;
+
 SDL_Surface *icon = NULL;
 
 const char *window_title = "SOKOBAN";
@@ -48,9 +61,6 @@ Uint32 render_flags = SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC;
 
 
 //-----------------SOKOBAN LOGIC VALUES----------------------
-
-#include <stdbool.h>
-#include <stdlib.h>
 
 #define MAX_WIDTH 30//max witdth or height of reading maps
 #define MAX_HEIGHT 30
@@ -98,18 +108,28 @@ bool isOnTarget(int x, int y);//returns true if object on this coord is on targe
 int play();//play level
 int makeLevel();//DIY mode
 int choosingSokobalLVL();//choose level
+int startingScreen();
 
 int main(int argc, char* argv[])
 {
+    int returnType = startingScreen();
+    if(returnType != 1) return returnType;
     while (true) {//main loop
         currLVL = 0;
-        if(loadLevel() == -1) return 0;//load level heigt and width of field
-        if(currLVL == 0) makeLevel();
-        else play();
+        returnType = loadLevel();
+        if(returnType == -1 ) break;//load level heigt and width of field
+        if(returnType == -2){
+            returnType = startingScreen();
+            if(returnType == -1) break;
+            continue;
+        }
+        if(currLVL == 0) returnType = makeLevel();
+        else returnType = play();
+        if(returnType == -3) break;
     }
     destroyText();
     
-    return 0;
+    return 1;
 }
 int play(){
     TEX_X_COUNT = width;
@@ -118,16 +138,11 @@ int play(){
     WIDTH_RELATIVETY = WINDOW_WIDTH/TEX_X_COUNT;
     HEIGHT_RELATIVETY = WINDOW_HEIGHT/TEX_Y_COUNT;
 
-
-    //Creates pointers to various game elements
-    //Uint32 render_flags = SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC;
-
     SDL_Window  *window = NULL;
     SDL_Renderer*rend = NULL;
 
     SDL_Texture *targetTexture = NULL;
     SDL_Texture *coolTargetTexture = NULL;
-    // SDL_Surface *resSurf[resourcesCount];
 
     int request_quit = 0;
 
@@ -307,7 +322,7 @@ int play(){
             switch (event.type)
             {
             case SDL_QUIT:
-                request_quit = 1;
+                request_quit = 3;
                 break;
             case SDL_KEYDOWN:
                 switch (event.key.keysym.scancode)
@@ -364,7 +379,7 @@ int play(){
         for(int i = 0; i < wallsCount; i++)
             SDL_RenderCopy(rend, !coolMode ? resTex[2] : resTex[coolWallOn[i]], NULL, &xWalls[i]);
 
-        SDL_RenderCopy(rend, !coolMode ? resTex[4] : resTex[9], NULL, &xBuilder);
+        SDL_RenderCopy(rend, !coolMode ? buildTex[currBuilder] : resTex[9], NULL, &xBuilder);
 
         
         if(startCoolMode && !coolMode)
@@ -390,7 +405,7 @@ int play(){
     SDL_DestroyRenderer(rend);
     SDL_DestroyWindow(window);
     SDL_Quit();
-    return request_quit == 1 ? -1 : 1;
+    return request_quit == 3 ? -3 : request_quit == 1 ? -1 : 1;
 }
 
 //--------------------SOKOBAN MAIN LOGIC---------------------------
@@ -436,7 +451,7 @@ void printField(SDL_Rect* xBuilder, SDL_Rect xWalls[wallsCount], SDL_Rect xBoxes
 
 int loadLevel(){
     int lvl = choosingSokobalLVL();
-    if(lvl == -1) return -1;
+    if(lvl < 0) return lvl == -3 ? -1 : lvl;
     if(lvl == 0) return 1;//DIY
     if(loadField(lvl) == -1) return -1;
     return 1;
@@ -602,8 +617,8 @@ int readyTargetCount(){//boxes on target count
 
 //---------------------CHOOOSE SOKOBAN LELEVEL --------------------
 
-int const CHOOSING_WINDOW_WIDTH = 720;
-int const CHOOSING_WINDOW_HEIGHT = 720;
+int const CHOOSING_WINDOW_WIDTH = 960;
+int const CHOOSING_WINDOW_HEIGHT = 960;
 int texWidth = CHOOSING_WINDOW_WIDTH/10, texHeight = CHOOSING_WINDOW_HEIGHT/10;
 
 int findLVLCount();
@@ -670,7 +685,7 @@ int choosingSokobalLVL(){
             switch (event.type)
             {
             case SDL_QUIT:
-                request_quit = 1;
+                request_quit = 3;
                 break;
             case SDL_KEYDOWN:
                 switch (event.key.keysym.scancode)
@@ -732,7 +747,7 @@ int choosingSokobalLVL(){
     SDL_DestroyRenderer(rend);
     SDL_DestroyWindow(window);
     SDL_Quit();
-    return choosedLVL;
+    return request_quit == 3 ? -3 : choosedLVL == -1 ? -2 : choosedLVL;
 }
 
 int findLVLCount(){
@@ -870,7 +885,7 @@ int makeLevel(){
             switch (event.type)
             {
             case SDL_QUIT:
-                request_quit = 1;
+                request_quit = 3;
                 break;
             case SDL_MOUSEBUTTONDOWN:
                 if(choosingBorders) break;
@@ -1044,10 +1059,10 @@ int makeLevel(){
         } else {
             SDL_RenderCopy(rend, resTex[0], NULL, &xBackground);
             for(int i = 0; i < clickCount; i++){
-                SDL_RenderCopy(rend, resTex[objText[i]], NULL, &xObjects[i]);
+                SDL_RenderCopy(rend, objText[i] == 4 ? buildTex[currBuilder] : resTex[objText[i]], NULL, &xObjects[i]);
             }
 
-            SDL_RenderCopy(rend, resTex[currTex], NULL, &movRect);
+            SDL_RenderCopy(rend, currTex == 4 ? buildTex[currBuilder] : resTex[currTex], NULL, &movRect);
         }
         SDL_RenderPresent(rend);
 
@@ -1060,7 +1075,8 @@ int makeLevel(){
     SDL_DestroyWindow(window);
     SDL_Quit();
 
-    if(request_quit == 1) return 1;//if user has typed esc -> escape frome DIY mode 
+    if(request_quit == 1 || request_quit == 3) return request_quit == 3 ? -3 : 1;
+                                    //if user has typed esc -> escape frome DIY mode 
                                     //otherwise load filed to file
     int lvlCount = findLVLCount();//find level count to put our after
 
@@ -1084,11 +1100,166 @@ bool hasRect(int x, int y, int length, SDL_Rect xObjects[length]){//if in that p
     return false;
 }
 
+//------------------STARTING SCREEN------------------------------
+int startingScreen(){
+    SDL_Window *window = NULL;
+    SDL_Renderer *rend = NULL;
+
+    SDL_Init(SDL_INIT_EVERYTHING);
+
+    if(SDL_Init(SDL_INIT_EVERYTHING) != 0) {
+        printf("Failed to initialize SDL: %s\n", SDL_GetError());
+        SDL_Quit();
+        return -1;
+    }
+
+    window = SDL_CreateWindow(window_title, SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,CHOOSING_WINDOW_WIDTH, CHOOSING_WINDOW_HEIGHT, 0);
+
+    if(!window) {
+        printf("Failed to initalize window: %s\n", SDL_GetError());
+        SDL_Quit();
+        return -1;
+    }
+
+    rend = SDL_CreateRenderer(window, -1, render_flags);
+    if(!rend) {
+        printf("Failed to initialize renderer: %s\n", SDL_GetError());
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return -1;
+    }
+
+    if(initText(rend) == -1){
+        SDL_DestroyRenderer(rend);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return -1;
+    }
+    SDL_SetWindowIcon(window, icon);
+
+    SDL_Rect xBackground[3];//3 backgrounds (same texture) coming after previous (1 <- 2 <- 3 <- 1)
+    SDL_Rect xPressKey = {CHOOSING_WINDOW_WIDTH/42, CHOOSING_WINDOW_HEIGHT/3, CHOOSING_WINDOW_WIDTH, CHOOSING_WINDOW_HEIGHT/4};
+
+    SDL_Rect xChooseBuilder = {0, CHOOSING_WINDOW_HEIGHT/10, CHOOSING_WINDOW_WIDTH*4/5, CHOOSING_WINDOW_HEIGHT/5};
+    xChooseBuilder.x = (CHOOSING_WINDOW_WIDTH-xChooseBuilder.w)/2;
+
+    SDL_Rect xBuilder = {0, xPressKey.y + xPressKey.h +xPressKey.h/5, CHOOSING_WINDOW_WIDTH/4, CHOOSING_WINDOW_WIDTH/4};
+    xBuilder.x = CHOOSING_WINDOW_WIDTH/2 - xBuilder.w/2;
+
+    for(int i = 0; i < 3; i++){//3 backgrounds (same texture) coming after previous (1 <- 2 <- 3 <- 1)
+        xBackground[i].x = i == 0 ? 0 : xBackground[i-1].x+CHOOSING_WINDOW_WIDTH;
+        xBackground[i].y = 0;
+        xBackground[i].h = CHOOSING_WINDOW_WIDTH;
+        xBackground[i].w = CHOOSING_WINDOW_HEIGHT;
+    }
+
+    int request_quit = 0;
+
+    bool grow = false;//animation grows or reduces
+    int frameCount = 0;
+
+    bool choosingMode = false;//press key screen or choose character
+
+    while (!request_quit) {
+        SDL_Event event;
+        while(SDL_PollEvent(&event)){
+            switch (event.type){
+            case SDL_QUIT:
+                request_quit = 1;
+                break;
+            case SDL_KEYDOWN:
+                switch (event.key.keysym.scancode){
+                    case SDL_SCANCODE_ESCAPE:
+                        request_quit = 1;
+                        break;
+                    case SDL_SCANCODE_RETURN:
+                        if(choosingMode) request_quit = 2;//character was choosed
+                        else choosingMode = true;//change mode (default vakue by all keys)
+                        break;
+                    case SDL_SCANCODE_A:
+                    case SDL_SCANCODE_LEFT:
+                        if(!choosingMode){
+                            choosingMode = true;
+                            break;
+                        }
+                        
+                        if(--currBuilder < 0) currBuilder++;//change builder
+                        break;
+                    case SDL_SCANCODE_D:
+                    case SDL_SCANCODE_RIGHT:
+                        if(!choosingMode){
+                            choosingMode = true;
+                            break;
+                        }
+
+                        if(++currBuilder > buildersCount-1) currBuilder--;
+                        break;
+                    default:
+                        choosingMode = true;
+                        break;
+                }
+            default:
+                break;
+            }
+        }
+        if(choosingMode){//change position after chhanging mode
+            xBuilder.x = CHOOSING_WINDOW_WIDTH/2 - xBuilder.w/2;
+            xBuilder.y = xChooseBuilder .y + xChooseBuilder .h + xChooseBuilder.h/2;
+        }
+
+        SDL_RenderClear(rend);
+
+        for(int i = 0; i < 3; i++)//render backgrounds
+            SDL_RenderCopy(rend, resTex[0], NULL, &xBackground[i]);
+        
+        if(!choosingMode){//render builder and text
+            SDL_RenderCopy(rend, resTex[15], NULL, &xPressKey);
+            SDL_RenderCopy(rend, resTex[frameCount > 50 ? 16 : 4], NULL, &xBuilder);
+        } else {
+            SDL_RenderCopy(rend, buildTex[currBuilder], NULL, &xBuilder);
+            SDL_RenderCopy(rend, resTex[17], NULL, &xChooseBuilder );
+        }
+        
+        SDL_RenderPresent(rend);
+
+        for(int i = 0; i < 3; i++)//move backrounds
+            if(--xBackground[i].x < -CHOOSING_WINDOW_WIDTH) xBackground[i].x = xBackground[i == 0 ? 2 : i-1].x + CHOOSING_WINDOW_WIDTH-10;
+        
+        if(frameCount == 65){//change growing animation
+            grow = !grow;
+            frameCount = 0;
+        }
+        if(frameCount%2 == 0){
+            if(!choosingMode){
+                xPressKey.w += grow ? 1 : -1;
+                xPressKey.h += grow ? 1 : -1;
+                xPressKey.x += frameCount%4 == 0 ? 0 : grow ? -1 : 1;
+                xPressKey.y += frameCount%16 == 0 ? 0 : grow ? -1 : 1;
+            } else {
+                xBuilder.w += grow ? 1 : -1;
+                xBuilder.h += grow ? 1 : -1;
+                xBuilder.x += frameCount%4 == 0 ? 0 : grow ? -1 : 1;
+                xBuilder.y += frameCount%4 == 0 ? 0 : grow ? -1 : 1;
+            }
+        }
+        
+        frameCount++;
+        SDL_Delay(1000 / 60);
+    }
+    destroyText();
+    SDL_DestroyRenderer(rend);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return request_quit == 1 ? -1 : 1;
+}
+
+
 //------------------INITIOLIZE AND DESTROY TEXTURES--------------
 
 int initText(SDL_Renderer *rend){
     SDL_Surface *numImg[imgCount];
     SDL_Surface *resSurf[resourcesCount];
+    SDL_Surface *buildSurf[buildersCount];
 
     bool error = false;
 
@@ -1107,6 +1278,15 @@ int initText(SDL_Renderer *rend){
             printf("Problem in: %s\n", resources[i]);
         }
     }
+
+    for(int i = 0; i < buildersCount; i++){
+        buildSurf[i] = IMG_Load(buildersPath[i]);
+        if (!buildSurf[i]) {
+            error = true;
+            printf("Problem in: %s\n", buildersPath[i]);
+        }
+    }
+
     icon = IMG_Load(resources[6]);
     if(!icon) error = true;
 
@@ -1130,6 +1310,12 @@ int initText(SDL_Renderer *rend){
         resTex[i] = SDL_CreateTextureFromSurface(rend, resSurf[i]);
         SDL_FreeSurface(resSurf[i]);
         if(!resTex[i]) error = true;
+    }
+
+    for(int i = 0; i < buildersCount; i++){
+        buildTex[i] = SDL_CreateTextureFromSurface(rend, buildSurf[i]);
+        SDL_FreeSurface(buildSurf[i]);
+        if(!buildTex[i]) error = true;
     }
 
     for(int i = 0; i < maxLVL; i++){
@@ -1156,6 +1342,9 @@ int destroyText(){
 
     for(int i = 0; i < resourcesCount; i++)
         SDL_DestroyTexture(resTex[i]);
+
+    for(int i = 0; i < buildersCount; i++)
+        SDL_DestroyTexture(buildTex[i]);
 
     SDL_FreeSurface(icon);
     return 0;
