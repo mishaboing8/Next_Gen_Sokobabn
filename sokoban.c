@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include "kbhit.h"
-
+#include <unistd.h>
 #define MAX_WIDTH 40
 #define MAX_HEIGHT 40
 
@@ -11,7 +11,7 @@ int height = 0, width = 0;
 int currLVL = 0;
 
 static FILE* input;
-static char FILE_NAME[] = "maps.txt";
+static char FILE_NAME[256];
 
 int targetXPos[MAX_HEIGHT*MAX_WIDTH] = {0}, targetYPos[MAX_HEIGHT*MAX_WIDTH] = {0};//all targets and their positions
 int targetCount = 0;
@@ -44,6 +44,12 @@ bool isOnTarget(int x, int y);//returns true if object on this coord is on targe
 int main(){
     system("clear");
 
+    char cwd[256];
+    if (getcwd(cwd, sizeof(cwd)) == NULL) {
+        perror("getcwd() error");
+        return 1;
+    }
+    sprintf(FILE_NAME, "%s/%s", cwd, "pers_Proj/maps.txt");
     xPos = 0, yPos = 0;
     targetCount = 0;
 
@@ -117,7 +123,7 @@ void loadLevel(){
 int loadField(int level){
     char currChar;
     targetCount = 0;
-
+    
     input = fopen(FILE_NAME, "r");
     char line[256];
     int prevLVL = 10;//if there is infinity loop(if lvl not exist), it will roll with same lvl again and again

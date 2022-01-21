@@ -5,6 +5,7 @@
 #include <SDL_timer.h>
 #include <SDL_image.h>
 #include <SDL_mixer.h>
+#include <unistd.h>
 
 //--------------GUI CHARACTERISTICS--------------------------
 int TEX_X_COUNT;//Objects maximal possible count in x and y achse
@@ -70,7 +71,7 @@ int height = 0, width = 0;//starting width or height, and level
 int currLVL = 0;
 
 static FILE* input;
-static char FILE_NAME[] = "maps.txt";//file with created maps
+static char FILE_NAME[256] = "maps.txt";//file with created maps
 
 int targetXPos[MAX_HEIGHT*MAX_WIDTH] = {0}, targetYPos[MAX_HEIGHT*MAX_WIDTH] = {0};//all targets and their positions
 int targetCount = 0;//target or box count (boxCount == targetCount)
@@ -112,8 +113,16 @@ int startingScreen();
 
 int main(int argc, char* argv[])
 {
+    if (access(FILE_NAME, F_OK ) != 0){//if file maps.txt doesnt exists, than changes small path to large path in map with all files
+        char cwd[256];
+        getcwd(cwd, sizeof(cwd));
+        sprintf(FILE_NAME, "%s/%s", cwd, "pers_Proj/maps.txt");
+    }
+
+    if(access(FILE_NAME, F_OK ) != 0) return 1;//if changed path does not exists -> error
+
     int returnType = startingScreen();
-    if(returnType != 1) return returnType;
+    if(returnType != 1) return 0;
     while (true) {//main loop
         currLVL = 0;
         returnType = loadLevel();
@@ -127,9 +136,8 @@ int main(int argc, char* argv[])
         else returnType = play();
         if(returnType == -3) break;
     }
-    destroyText();
     
-    return 1;
+    return 0;
 }
 int play(){
     TEX_X_COUNT = width;
@@ -1021,26 +1029,30 @@ int makeLevel(){
                     bool founded = false;
 
                     for(int i = 0; i < clickCount; i++){//find rectangle and move all to thous previous position(pos--)
-                        if(founded) xObjects[i-1] = xObjects[i];
+                        if(founded) {
+                            xObjects[i-1] = xObjects[i];
+                            objText[i-1] = objText[i];
+                        }
                         if(xObjects[i].x == recX && xObjects[i].y == recY) founded = true;
                     }
 
                     if(!founded) break;
 
-                    clickCount--;
-                    
                     //find wat's the object was and resets all parameters(if needed)
                     char c = field[recY/texHeight][recX/texWidth];
                     field[recY/texHeight][recX/texWidth] = '0';
                     switch (c){
                     case 'I':
                         placedBuilder = false;
+                        clickCount--;
                         break;
                     case 'X':
                         placedTargetCount--;
+                        clickCount--;
                         break;
                     case 'B':
                         placedBoxCount--;
+                        clickCount--;
                         break;
                     default:
                         break;

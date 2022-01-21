@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+
 int const buildersCount = 11;
 char const *buildersPath[buildersCount] = {"resources/characters/builder.png","resources/characters/panda.png","resources/characters/poop.png",
                                             "resources/characters/cowBoy.png","resources/characters/nerd.png","resources/characters/skeleton.png",
