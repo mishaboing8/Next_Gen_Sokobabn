@@ -113,8 +113,8 @@ int startingScreen();
 
 int main(int argc, char* argv[])
 {
-    if (access(FILE_NAME, F_OK ) != 0){//if file maps.txt doesnt exists, than changes small path to large path in map with all files
-        char cwd[256];
+    if (access(FILE_NAME, F_OK ) != 0){//if file maps.txt doesnt exists, than changes small path to large path in root of all folders
+        char cwd[256];                     // maps.txt -> /Users/mihails/Desktop/prozeduale_Prog/pers_Proj/maps.txt
         getcwd(cwd, sizeof(cwd));
         sprintf(FILE_NAME, "%s/%s", cwd, "pers_Proj/maps.txt");
     }
@@ -1052,6 +1052,12 @@ int makeLevel(){
                         break;
                     case 'B':
                         placedBoxCount--;
+                        clickCount--;
+                        break;
+                    case '\\'://walls (in console version)
+                    case '/':
+                    case '|':
+                    case '-':
                         clickCount--;
                         break;
                     default:
