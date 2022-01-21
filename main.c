@@ -10,7 +10,7 @@
 int TEX_X_COUNT;//Objects maximal possible count in x and y achse
 int TEX_Y_COUNT;
 
-int const WINDOW_WIDTH = 960;//gaming window screen
+int const WINDOW_WIDTH = 720;//gaming window screen
 int WINDOW_HEIGHT;
 
 int WIDTH_RELATIVETY;//how bright or long are textures
@@ -617,8 +617,8 @@ int readyTargetCount(){//boxes on target count
 
 //---------------------CHOOOSE SOKOBAN LELEVEL --------------------
 
-int const CHOOSING_WINDOW_WIDTH = 960;
-int const CHOOSING_WINDOW_HEIGHT = 960;
+int const CHOOSING_WINDOW_WIDTH = 720;
+int const CHOOSING_WINDOW_HEIGHT = 720;
 int texWidth = CHOOSING_WINDOW_WIDTH/10, texHeight = CHOOSING_WINDOW_HEIGHT/10;
 
 int findLVLCount();
@@ -805,6 +805,7 @@ int combineNumTexture(SDL_Renderer *rend, int digit, SDL_Texture *targetTexture,
 //------------------DO YOUR OWN LEVEL----------------------------
 
 bool hasRect(int x, int y, int length, SDL_Rect xObjects[length]);//if given point is in rectange array
+void createRandomBorders(int fieldLength, char field[MAX_HEIGHT][MAX_WIDTH]);
 
 int makeLevel(){
     SDL_Window  *window = NULL;
@@ -1000,6 +1001,8 @@ int makeLevel(){
                     }
                     break;
                 case SDL_SCANCODE_P://print field (moustly debugging)
+                    if(choosingBorders) break;
+
                     printf("\n");
                     for(int y = 0; y < fieldLength; y++){
                         for(int x = 0; x < fieldLength; x++){
@@ -1008,7 +1011,44 @@ int makeLevel(){
                         printf("\n"); 
                     }
                     break;
+
+                case SDL_SCANCODE_E://earese object on cursor position
+                    if(choosingBorders) break;
+                    if(clickCount == 0) break;
+
+                    //find cursour position
+                    int recX = movRect.x - movRect.x%texWidth, recY = movRect.y - movRect.y%texHeight;
+                    bool founded = false;
+
+                    for(int i = 0; i < clickCount; i++){//find rectangle and move all to thous previous position(pos--)
+                        if(founded) xObjects[i-1] = xObjects[i];
+                        if(xObjects[i].x == recX && xObjects[i].y == recY) founded = true;
+                    }
+
+                    if(!founded) break;
+
+                    clickCount--;
+                    
+                    //find wat's the object was and resets all parameters(if needed)
+                    char c = field[recY/texHeight][recX/texWidth];
+                    field[recY/texHeight][recX/texWidth] = '0';
+                    switch (c){
+                    case 'I':
+                        placedBuilder = false;
+                        break;
+                    case 'X':
+                        placedTargetCount--;
+                        break;
+                    case 'B':
+                        placedBoxCount--;
+                        break;
+                    default:
+                        break;
+                    }
+                    break;
                 case SDL_SCANCODE_Z://erase previos deccision
+                    if(choosingBorders) break;
+                    
                     if(clickCount <= 0) break;
                     
                     clickCount--;
@@ -1026,12 +1066,40 @@ int makeLevel(){
                     field[y][x] = '0';
                     break;
                 case SDL_SCANCODE_R://erase field
+                    if(choosingBorders) break;
+                    
                     clickCount = 0;
                     placedTargetCount = 0;
                     placedBoxCount = 0;
                     placedBuilder = false;
 
                     for(int y = 0; y < fieldLength; y++) for(int x = 0; x < fieldLength; x++) field[y][x] = '0';
+                    break;
+
+                case SDL_SCANCODE_L:
+                    if(choosingBorders) break;
+                    
+                    //load random walls
+                    //make like R button - erase all and reset
+                    clickCount = 0;
+                    placedTargetCount = 0;
+                    placedBoxCount = 0;
+                    placedBuilder = false;
+                    //fill up field
+                    for(int y = 0; y < fieldLength; y++) for(int x = 0; x < fieldLength; x++) field[y][x] = '0';
+                    //find edges and create hull
+                    createRandomBorders(fieldLength, field);
+
+                    //create rectangles
+                    for(int y = 0; y < fieldLength; y++) for(int x = 0; x < fieldLength; x++){
+                        if(field[y][x] == '0') continue;
+
+                        SDL_Rect randWall = {x*texWidth, y*texHeight, texWidth, texHeight};
+                        xObjects[clickCount]= randWall;
+                        objText[clickCount] = 2;
+                        clickCount++;
+                    }
+
                     break;
                 default:
                     break;  
@@ -1098,6 +1166,52 @@ bool hasRect(int x, int y, int length, SDL_Rect xObjects[length]){//if in that p
     for(int i = 0; i < length; i++)
         if(x == xObjects[i].x && y == xObjects[i].y) return true;
     return false;
+}
+
+//------------------MAKE RANDOM FIELD----------------------------
+#include "convex_hull.h"
+
+void makeLines(int fieldLength, char field[MAX_HEIGHT][MAX_WIDTH], int m, double x[], double y[], int c[]);
+
+void createRandomBorders(int fieldLength, char field[MAX_HEIGHT][MAX_WIDTH]){
+    int n = fieldLength/2, m, c[n];
+    double x[n], y[n];
+
+    for(int x = 0; x < fieldLength; x++)
+        for(int y = 0; y < fieldLength; y++)
+            field[x][y] = '0';
+    
+    rand_points(n, x, y, 0, fieldLength);
+    m = hull(n, x, y, c);
+    makeLines(fieldLength, field, m, x, y, c);
+            
+}
+
+void makeLines(int fieldLength, char field[MAX_HEIGHT][MAX_WIDTH], int m, double x[], double y[], int c[]){
+    for (int i = 0; i < m; i++) {
+        double x1 = x[c[i]], y1 = y[c[i]], x2, y2;
+        if (i == m - 1) {
+            x2 = x[c[0]];
+            y2 = y[c[0]];
+        } else {
+            x2 = x[c[i+1]];
+            y2 = y[c[i+1]];
+        }
+        double xMin = x1 < x2 ? x1 : x2, xMax = x1 < x2 ? x2 : x1;
+        double yMin = y1 < y2 ? y1 : y2, yMax = y1 < y2 ? y2 : y1;
+
+        double add = 1.0 / 1000;
+        //if x1 and x2 are same it is impossible to devide by 0, but on graph it is just straight vertical line
+        if (x1 == x2) {
+            for (double y = yMin; y < yMax; y += add)
+                field[(int)x1][(int)y] = '|';
+        } else{
+            for (double x = xMin, y; x < xMax; x += add) {
+                y = ((x - x1) * (y2 - y1) / (x2 - x1)) + y1;
+                field[(int)x][(int)y] = '|';
+            }
+        }
+    }
 }
 
 //------------------STARTING SCREEN------------------------------
