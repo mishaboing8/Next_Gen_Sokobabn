@@ -25,7 +25,7 @@ char const *buildersPath[buildersCount] = {"resources/characters/builder.png","r
                                             };
 
 
-int const resourcesCount = 18;
+int const resourcesCount = 20;
 char const *resources[resourcesCount] = {
                             "resources/background.png", 
                             "resources/box.png", "resources/wall.png","resources/target.png",
@@ -34,7 +34,8 @@ char const *resources[resourcesCount] = {
                             "resources/coolBuilder.png", "resources/coolGoogles.png", "resources/coolWall.png",
                             "resources/coolWallUp.png", "resources/coolTarget.png",
                             "resources/DIY.png",
-                            "resources/pressKey.png", "resources/builderClosedEye.png", "resources/chooseBuilder.png"
+                            "resources/pressKey.png", "resources/builderClosedEye.png", "resources/chooseBuilder.png",
+                            "resources/car.png", "resources/wheelStep.png"
                             };
 
 int const imgCount = 10;
@@ -751,6 +752,7 @@ int choosingSokobalLVL(){
     SDL_RenderPresent(rend);
     }
 
+
     destroyText();
     SDL_DestroyRenderer(rend);
     SDL_DestroyWindow(window);
@@ -859,6 +861,19 @@ int makeLevel(){
         return -1;
     }
 
+    Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048);
+
+    Mix_Music *backAudio = Mix_LoadMUS("resources/audio/tokioDrift.mp3");
+    if(!backAudio) {
+        printf("Failed to initialize audio: %s\n", SDL_GetError());
+
+        //Destroys window
+        SDL_DestroyWindow(window);
+        SDL_DestroyRenderer(rend);
+        SDL_Quit();
+        return -1;
+    }
+
     SDL_Rect xBackground = {0,0, CHOOSING_WINDOW_WIDTH, CHOOSING_WINDOW_HEIGHT};
     
     SDL_Rect movRect = {texWidth,texHeight,texWidth,texHeight};//choosing (moving square)
@@ -871,6 +886,23 @@ int makeLevel(){
     int placedBoxCount = 0, placedTargetCount = 0;
 
     int mouseX = 0, mouseY = 0;
+
+    //Drift Mode start
+    int const tireCount = 20;
+    int tireAngles[tireCount] = {0};
+    SDL_Rect xCar = {CHOOSING_WINDOW_WIDTH/2, CHOOSING_WINDOW_HEIGHT/2, texWidth, texHeight};
+    SDL_Rect xDriver = xCar;
+    SDL_Rect xTires[tireCount];
+
+    int vecSum = 0, vertVec = 0, horVec = 0;
+    int maxSpeed = 5;
+    int angle = 0, angleIncr = 15;
+    
+    for(int i = 0; i < tireCount; i++)
+        xTires[i] = xCar;
+    
+    bool driftMode = false;
+    //drift mode end
 
     int request_quit = 0;
     while(!request_quit){
@@ -898,6 +930,7 @@ int makeLevel(){
                 break;
             case SDL_MOUSEBUTTONDOWN:
                 if(choosingBorders) break;
+                if(driftMode)break;
                 
                 int x = movRect.x - movRect.x%texWidth, y = movRect.y - movRect.y%texHeight;
 
@@ -939,6 +972,7 @@ int makeLevel(){
                 clickCount++;
                 break;
             case SDL_MOUSEMOTION:
+                if(driftMode)break;
                 if(choosingBorders) break;
 
                 mouseX = event.motion.x;
@@ -955,8 +989,28 @@ int makeLevel(){
                 case SDL_SCANCODE_ESCAPE:
                     request_quit = 1;
                     break;
+
+                case SDL_SCANCODE_T:
+                    driftMode = !driftMode;
+                    if(!driftMode) Mix_PauseMusic();
+                    if(driftMode){//reset map
+                        Mix_PlayMusic(backAudio, -1);
+                        clickCount = 0;
+                        placedTargetCount = 0;
+                        placedBoxCount = 0;
+                        placedBuilder = false;
+
+                        for(int y = 0; y < fieldLength; y++) for(int x = 0; x < fieldLength; x++) field[y][x] = '0';
+                    }
+                    break;
                 case SDL_SCANCODE_A:
                 case SDL_SCANCODE_LEFT:
+                    if(driftMode){
+                        if(--horVec < -maxSpeed) horVec = -maxSpeed;
+                        if(angle == 270) break;
+                        else angle += angleIncr;
+                        break;
+                    }
                     if(!choosingBorders){
                         if(currTex > 1) currTex--;//box, target or box
                     } else {
@@ -973,6 +1027,12 @@ int makeLevel(){
                     break;
                 case SDL_SCANCODE_D:
                 case SDL_SCANCODE_RIGHT:
+                    if(driftMode){
+                        if(++horVec > maxSpeed)  horVec = maxSpeed;
+                        if(angle == 90) break;
+                        else angle += angleIncr;
+                        break;
+                    }
                     if(!choosingBorders){
                         if(currTex < 4)currTex++;//box, target or box
                     } else {
@@ -987,7 +1047,28 @@ int makeLevel(){
                         }
                     }
                     break;
+                case SDL_SCANCODE_W:
+                    if(driftMode){
+                        if(--vertVec < -maxSpeed) vertVec = -maxSpeed;
+                        if(angle == 0) break;
+                        else angle += angleIncr;
+                        break;
+                    }
+
+                    break;
+                case SDL_SCANCODE_S:
+                    if(driftMode){
+                        if(++vertVec > maxSpeed)  vertVec = maxSpeed;
+                        if(angle == 180) break;
+                        else angle += angleIncr;
+                        break;
+                    }
+
+                    break;
                 case SDL_SCANCODE_RETURN://aka enter
+                    if(driftMode)break;
+
+
                     if(!choosingBorders) {//changing modus or finish job
                         if(!placedBuilder || placedTargetCount != placedBoxCount || placedBoxCount == 0 || placedTargetCount == 0) break;//to finish builder must be placed 
                                                                                         //and target amount must be equal to box amount
@@ -1006,6 +1087,16 @@ int makeLevel(){
                         movRect.w = texWidth;
                         movRect.x = 0;
                         movRect.y = 0;   
+                        //drift mode
+                        xCar.h = texHeight;
+                        xCar.w = texWidth;
+                        xDriver.h = xCar.h/3;
+                        xDriver.w = xCar.w/3;
+                        for(int i = 0; i < tireCount; i++){
+                            xTires[i].w = texWidth;
+                            xTires[i].h = texHeight;
+                        }
+                        //drift mode end
                     }
                     break;
                 case SDL_SCANCODE_P://print field (moustly debugging)
@@ -1021,6 +1112,7 @@ int makeLevel(){
                     break;
 
                 case SDL_SCANCODE_E://earese object on cursor position
+                    if(driftMode)break;
                     if(choosingBorders) break;
                     if(clickCount == 0) break;
 
@@ -1065,6 +1157,7 @@ int makeLevel(){
                     }
                     break;
                 case SDL_SCANCODE_Z://erase previos deccision
+                    if(driftMode)break;
                     if(choosingBorders) break;
                     
                     if(clickCount <= 0) break;
@@ -1095,6 +1188,7 @@ int makeLevel(){
                     break;
 
                 case SDL_SCANCODE_L:
+                    if(driftMode)break;
                     if(choosingBorders) break;
                     
                     //load random walls
@@ -1128,7 +1222,71 @@ int makeLevel(){
         }
 
         SDL_RenderClear(rend);
-        if(choosingBorders){
+
+        if(driftMode){
+            int x = xCar.x - xCar.x%texWidth, y = xCar.y - xCar.y%texHeight;
+            int fx = xCar.x/texWidth, fy = xCar.y/texHeight;
+            
+            if(field[fy][fx] == '0'){
+                field[fy][fx] = '|';
+                
+                xObjects[clickCount] = xCar; 
+                xObjects[clickCount].x = x;
+                xObjects[clickCount].y = y;
+                xObjects[clickCount].w = texWidth;
+                xObjects[clickCount].h = texHeight;
+                objText[clickCount] = 2;
+                clickCount++;
+            }
+            if(angle >= 360) angle %= 360;
+            if(angle < 0) angle = 360 + angle;
+
+            xCar.y += vertVec;
+            xCar.x += horVec;
+
+            if(xCar.x < 0) {
+                xCar.x = 0;
+                horVec = 0;
+            }
+            if(xCar.x > CHOOSING_WINDOW_WIDTH-xCar.w) {
+                xCar.x = CHOOSING_WINDOW_WIDTH-xCar.w;
+                horVec = 0;
+            }
+            if(xCar.y < 0){ 
+                xCar.y = 0;
+                vertVec = 0;
+            }
+            if(xCar.y > CHOOSING_WINDOW_HEIGHT-xCar.h) {
+                xCar.y = CHOOSING_WINDOW_HEIGHT-xCar.h;
+                vertVec = 0;
+            }
+
+            if(frameCount % 5 == 0){
+                for(int i = tireCount-1; i > 0; i--){
+                    xTires[i] = xTires[i-1];
+                    tireAngles[i] = tireAngles[i-1];
+                }
+
+            xTires[0] = xCar;
+            tireAngles[0] = angle+90;
+        }
+        SDL_RenderClear(rend);
+        SDL_RenderCopy(rend, resTex[0], NULL, &xBackground);
+        vecSum = abs(vertVec) + abs(horVec);
+        xDriver.x = xCar.x+xCar.w/2;
+        xDriver.y = xCar.y+xCar.h/2;
+
+        for(int i = 0; i < clickCount; i++)
+            SDL_RenderCopy(rend, resTex[objText[i]], NULL, &xObjects[i]);
+        
+        for(int i = 1; i < vecSum; i++)
+            SDL_RenderCopyEx(rend, resTex[19], NULL, &xTires[i], tireAngles[i], NULL, NULL);
+
+
+        SDL_RenderCopyEx(rend, resTex[18], NULL, &xCar, angle+90, NULL, NULL);
+        SDL_RenderCopyEx(rend, buildTex[currBuilder], NULL, &xDriver, angle+270, NULL, NULL);
+
+        } else if(choosingBorders){
             if(currTex < 5){//wall in back ground and numbers front or vice versa
                 SDL_RenderCopy(rend, resTex[1], NULL, &xBackground);
                 for (int i = 0; i < currTex; i++) {
@@ -1154,6 +1312,10 @@ int makeLevel(){
 
         SDL_Delay(1000 / 120);
     }
+
+
+    Mix_CloseAudio();
+    Mix_FreeMusic(backAudio);
 
     destroyText();
 
