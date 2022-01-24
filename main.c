@@ -17,8 +17,9 @@ int WINDOW_HEIGHT;
 int WIDTH_RELATIVETY;//how bright or long are textures
 int HEIGHT_RELATIVETY;
 
-int const buildersCount = 11;
-char const *buildersPath[buildersCount] = {"resources/characters/builder.png","resources/characters/panda.png","resources/characters/poop.png",
+int const buildersCount = 13;
+char const *buildersPath[buildersCount] = {"resources/characters/builder.png", "resources/characters/MIHA.png", "resources/characters/MICHI.png",
+                                            "resources/characters/panda.png","resources/characters/poop.png",
                                             "resources/characters/cowBoy.png","resources/characters/nerd.png","resources/characters/skeleton.png",
                                             "resources/characters/shrek.png", "resources/characters/coolTooth.png", "resources/characters/badTooth.png",
                                             "resources/characters/malevichSquare.png","resources/characters/spongeBob.png"
