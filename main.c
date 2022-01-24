@@ -46,11 +46,19 @@ char const *numbersPaths[imgCount] = {
                     "resources/numbers/seven.png", "resources/numbers/eight.png", 
                     "resources/numbers/nine.png", "resources/numbers/zero.png"};
 
+int const keyCount = 8;
+int const notDIYKeys = 1;
+char const *keysPaths[keyCount] = {"resources/keys/CTRL.png","resources/keys/AD.png",
+                                    "resources/keys/L.png","resources/keys/T.png",
+                                    "resources/keys/E.png","resources/keys/Z.png", "resources/keys/R.png",
+                                    "resources/keys/B.png"};
+
 int const maxLVL = 30;//maximal possible level
 
 SDL_Texture *resTex[resourcesCount];//all textures
 SDL_Texture *numText[imgCount];
 SDL_Texture *allNumText[maxLVL];
+SDL_Texture *keysText[keyCount];
 
 SDL_Texture *buildTex[buildersCount];
 int currBuilder = 0;
@@ -231,6 +239,18 @@ int play(){
     SDL_Rect xWin = {0, 0, 0, 0};
     SDL_Rect xGoog = {0, 0, 0, 0};
 
+    //hint keys
+    SDL_Rect xKeys[notDIYKeys+2];//+2 -> +ctrl and R
+    bool ctrlSelected = false;
+    xKeys[0].w = WINDOW_WIDTH/7;
+    xKeys[0].h = xKeys[0].w/3;
+    xKeys[0].y = 0;
+    xKeys[0].x = WINDOW_WIDTH-xKeys[0].w;
+    for(int i = 1; i < notDIYKeys+1; i++){
+        xKeys[i] = xKeys[0];
+        xKeys[i].y = xKeys[i-1].y + xKeys[i-1].h;
+    }
+
 
     //Gets scale and dimensions of textures
     SDL_QueryTexture(resTex[0], NULL, NULL, &xBackground.w, &xBackground.h);
@@ -339,6 +359,10 @@ int play(){
                 case SDL_SCANCODE_ESCAPE:
                     request_quit = 1;
                     break;
+                case SDL_SCANCODE_RCTRL:
+                case SDL_SCANCODE_LCTRL:
+                    ctrlSelected = !ctrlSelected;
+                    break;
                 case SDL_SCANCODE_R://reload level
                     loadField(currLVL);
                     break;
@@ -393,6 +417,13 @@ int play(){
         
         if(startCoolMode && !coolMode)
             SDL_RenderCopy(rend, resTex[10], NULL, &xGoog);
+        
+        if(ctrlSelected){
+            for(int i = 0; i < notDIYKeys+1; i++)
+                SDL_RenderCopy(rend, keysText[i + (keyCount -1 - notDIYKeys)], NULL, &xKeys[i]);
+        } else {
+            SDL_RenderCopy(rend, keysText[0], NULL, &xKeys[0]);
+        }
 
         if(readyTargetCount() == targetCount || wonFrameRate > 0){
             SDL_RenderCopy(rend, resTex[5], NULL, &xWin);
@@ -626,8 +657,8 @@ int readyTargetCount(){//boxes on target count
 
 //---------------------CHOOOSE SOKOBAN LELEVEL --------------------
 
-int const CHOOSING_WINDOW_WIDTH = 720;
-int const CHOOSING_WINDOW_HEIGHT = 720;
+int const CHOOSING_WINDOW_WIDTH = WINDOW_WIDTH;
+int const CHOOSING_WINDOW_HEIGHT = WINDOW_WIDTH;
 int texWidth = CHOOSING_WINDOW_WIDTH/10, texHeight = CHOOSING_WINDOW_HEIGHT/10;
 
 int findLVLCount();
@@ -887,6 +918,12 @@ int makeLevel(){
 
     int mouseX = 0, mouseY = 0;
 
+    //hint Keys
+    bool ctrlPressed = false;
+    SDL_Rect xKeys[keyCount];
+
+    //hint keys end
+
     //Drift Mode start
     int const tireCount = 20;
     int tireAngles[tireCount] = {0};
@@ -988,6 +1025,12 @@ int makeLevel(){
                 switch (event.key.keysym.scancode) {
                 case SDL_SCANCODE_ESCAPE:
                     request_quit = 1;
+                    break;
+                case SDL_SCANCODE_LCTRL:
+                case SDL_SCANCODE_RCTRL:
+                    if(choosingBorders) break;
+
+                    ctrlPressed = !ctrlPressed;
                     break;
 
                 case SDL_SCANCODE_T:
@@ -1097,6 +1140,18 @@ int makeLevel(){
                             xTires[i].h = texHeight;
                         }
                         //drift mode end
+                        
+                        //ctrl mode
+                        xKeys[0].w = CHOOSING_WINDOW_WIDTH/7;
+                        xKeys[0].h = xKeys[0].w/3;
+                        xKeys[0].y = xKeys[0].h/2;
+                        xKeys[0].x = CHOOSING_WINDOW_WIDTH - xKeys[0].w;
+                        xKeys[1] = xKeys[0];
+                        for(int i = 2; i < keyCount-notDIYKeys; i++){
+                            xKeys[i] = xKeys[0];
+                            xKeys[i].y = xKeys[i-1].y + xKeys[i-1].h;
+                        }
+
                     }
                     break;
                 case SDL_SCANCODE_P://print field (moustly debugging)
@@ -1307,6 +1362,15 @@ int makeLevel(){
             }
 
             SDL_RenderCopy(rend, currTex == 4 ? buildTex[currBuilder] : resTex[currTex], NULL, &movRect);
+        }
+
+        if(!choosingBorders){
+            if(!ctrlPressed) {
+                SDL_RenderCopy(rend, keysText[0], NULL, &xKeys[0]);
+            } else{
+                for(int i = 1; i < keyCount-notDIYKeys; i++)
+                    SDL_RenderCopy(rend, keysText[i], NULL, &xKeys[i]);
+            }
         }
         SDL_RenderPresent(rend);
 
@@ -1554,6 +1618,7 @@ int initText(SDL_Renderer *rend){
     SDL_Surface *numImg[imgCount];
     SDL_Surface *resSurf[resourcesCount];
     SDL_Surface *buildSurf[buildersCount];
+    SDL_Surface *keysSurf[keyCount];
 
     bool error = false;
 
@@ -1578,6 +1643,14 @@ int initText(SDL_Renderer *rend){
         if (!buildSurf[i]) {
             error = true;
             printf("Problem in: %s\n", buildersPath[i]);
+        }
+    }
+
+    for(int i = 0; i < keyCount; i++){
+        keysSurf[i] = IMG_Load(keysPaths[i]);
+        if (!keysSurf[i]) {
+            error = true;
+            printf("Problem in: %s\n", keysPaths[i]);
         }
     }
 
@@ -1612,6 +1685,12 @@ int initText(SDL_Renderer *rend){
         if(!buildTex[i]) error = true;
     }
 
+    for(int i = 0; i < keyCount; i++){
+        keysText[i] = SDL_CreateTextureFromSurface(rend, keysSurf[i]);
+        SDL_FreeSurface(keysSurf[i]);
+        if(!keysText[i]) error = true;
+    }
+
     for(int i = 0; i < maxLVL; i++){
         if (!allNumText[i]) error = true;
     }
@@ -1639,6 +1718,9 @@ int destroyText(){
 
     for(int i = 0; i < buildersCount; i++)
         SDL_DestroyTexture(buildTex[i]);
+    
+    for(int i = 0; i < keyCount; i++)
+        SDL_DestroyTexture(keysText[i]);
 
     SDL_FreeSurface(icon);
     return 0;

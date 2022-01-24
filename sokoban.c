@@ -11,7 +11,7 @@ int height = 0, width = 0;
 int currLVL = 0;
 
 static FILE* input;
-static char FILE_NAME[256];
+static char FILE_NAME[256] = "maps.txt";
 
 int targetXPos[MAX_HEIGHT*MAX_WIDTH] = {0}, targetYPos[MAX_HEIGHT*MAX_WIDTH] = {0};//all targets and their positions
 int targetCount = 0;
@@ -42,14 +42,16 @@ bool isOnTarget(int x, int y);//returns true if object on this coord is on targe
 
 
 int main(){
+
+    if (access(FILE_NAME, F_OK ) != 0){//if file maps.txt doesnt exists, than changes small path to large path in root of all folders
+        char cwd[256];                     // maps.txt -> /Users/mihails/Desktop/prozeduale_Prog/pers_Proj/maps.txt
+        getcwd(cwd, sizeof(cwd));
+        sprintf(FILE_NAME, "%s/%s", cwd, "pers_Proj/maps.txt");
+    }
+
+    if(access(FILE_NAME, F_OK ) != 0) return 1;//if changed path does not exists -> error
     system("clear");
 
-    char cwd[256];
-    if (getcwd(cwd, sizeof(cwd)) == NULL) {
-        perror("getcwd() error");
-        return 1;
-    }
-    sprintf(FILE_NAME, "%s/%s", cwd, "pers_Proj/maps.txt");
     xPos = 0, yPos = 0;
     targetCount = 0;
 
@@ -136,12 +138,11 @@ int loadField(int level){
         if (currLVL == level) {
             fscanf(input, "%c", &currChar);//skip new lines char 
             break;//arrived to neccesary level
-        }
-        else 
+        } else 
             for (int i = 0; i < height; i++)
                 fscanf(input, "%s", line);//skip current level lines
             
-           prevLVL = currLVL; 
+        prevLVL = currLVL; 
     }
 
 
@@ -191,7 +192,8 @@ void stepLeft(){
     if(xPos <= 0 || isWall(xPos - 1, yPos)) // wall or out of bounds
         return;
 
-    if(field[yPos][xPos - 1] == 'B' && (isWall(xPos - 2, yPos) || field[yPos][xPos-2] == 'B' || xPos-2 < 0))//after box are wall/anoter box/out of bounds
+    if(field[yPos][xPos - 1] == 'B' && (isWall(xPos - 2, yPos) || 
+    field[yPos][xPos-2] == 'B' || xPos-2 < 0))//after box are wall/anoter box/out of bounds
         return;
 
     if(field[yPos][xPos - 1] == 'B')
@@ -268,7 +270,6 @@ bool isOnTarget(int x, int y){
 
 int readyTargetCount(){
     int count = 0;
-    int boxXPos[MAX_HEIGHT*MAX_WIDTH] = {0}, boxYPos[MAX_HEIGHT*MAX_WIDTH] = {0};
 
     for(int i = 0; i < height; i++)
         for(int j = 0; j < width; j++)
