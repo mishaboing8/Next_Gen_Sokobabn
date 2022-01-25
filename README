@@ -1,0 +1,2 @@
+To make Sokoban on your Platform download main.c file , maps.txt and MakeFile. 
+Also to be able to create makefile, it is neccessary to to preinstall sdl bibliotek(sdl2, sdl_mixer and sdl_image).
