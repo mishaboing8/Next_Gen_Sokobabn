@@ -1,2 +1,8 @@
 To make Sokoban on your Platform download main.c file , maps.txt and MakeFile. 
 Also to be able to create makefile, it is neccessary to to preinstall sdl bibliotek(sdl2, sdl_mixer and sdl_image).
+Unfortunately music(because of the copyright) was removed.
+Links to audio sources:
+https://www.youtube.com/watch?v=daQ10K-6vzs 
+https://www.youtube.com/watch?v=iuJDhFRDx9M
+
+You can also add your audio with names "tokioDrift.mp3" and "dawning.mp3" in folder pers_Proj/resources/audio.
